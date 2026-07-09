@@ -2035,15 +2035,21 @@
       
       const recentLogs = logs.slice(-15);
       
-      if (recentLogs.length > 0 && recentLogs[0].expectedPct > 0) {
-        recentLogs.unshift({ expectedPct: 0, currentPct: 0 });
+      if (recentLogs.length > 0) {
+        const firstLogElapsed = tracker.trackingDirection === 'down' ? 100 - recentLogs[0].expectedPct : recentLogs[0].expectedPct;
+        if (firstLogElapsed > 0) {
+          recentLogs.unshift({ 
+            expectedPct: tracker.trackingDirection === 'down' ? 100 : 0, 
+            currentPct: tracker.trackingDirection === 'down' ? 100 : 0 
+          });
+        }
       }
       
       if (recentLogs.length > 0) {
         let pathD = '';
         let firstX = 0, lastX = 0;
         recentLogs.forEach((log, index) => {
-          const xPct = log.expectedPct;
+          const xPct = tracker.trackingDirection === 'down' ? 100 - log.expectedPct : log.expectedPct;
           const yPct = log.currentPct;
           const x = padding.left + (xPct / 100) * chartWidth;
           const y = padding.top + chartHeight - (yPct / 100) * chartHeight;
@@ -2095,11 +2101,13 @@
             const p1 = recentLogs[i - 1];
             const p2 = recentLogs[i];
             
-            const x1 = padding.left + (p1.expectedPct / 100) * chartWidth;
+            const xPct1 = tracker.trackingDirection === 'down' ? 100 - p1.expectedPct : p1.expectedPct;
+            const xPct2 = tracker.trackingDirection === 'down' ? 100 - p2.expectedPct : p2.expectedPct;
+            const x1 = padding.left + (xPct1 / 100) * chartWidth;
             const y1 = padding.top + chartHeight - (p1.currentPct / 100) * chartHeight;
             const idealY1 = padding.top + chartHeight - (p1.expectedPct / 100) * chartHeight;
             
-            const x2 = padding.left + (p2.expectedPct / 100) * chartWidth;
+            const x2 = padding.left + (xPct2 / 100) * chartWidth;
             const y2 = padding.top + chartHeight - (p2.currentPct / 100) * chartHeight;
             const idealY2 = padding.top + chartHeight - (p2.expectedPct / 100) * chartHeight;
             
