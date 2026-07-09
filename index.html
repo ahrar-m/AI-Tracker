@@ -17,9 +17,15 @@
       --card-border: rgba(255, 255, 255, 0.08);
       --card-blur: blur(16px);
       
-      --color-lead-red: #f43f5e;
-      --color-lag-amber: #f59e0b;
+      --color-lead-red: #ef4444;    /* Lead zone red */
+      --color-lag-green: #22c55e;   /* Lag zone green */
       --color-track-green: #10b981;
+      
+      --theme-primary: #6366f1;     /* Default unified theme accent */
+      --theme-secondary: #4f46e5;
+      --theme-glow: rgba(99, 102, 241, 0.15);
+      --theme-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      --theme-icon-bg: rgba(99, 102, 241, 0.1);
       
       --text-primary: #f3f4f6;
       --text-secondary: #9ca3af;
@@ -374,7 +380,7 @@
     }
 
     .lag-zone {
-      background-color: var(--color-lag-amber);
+      background-color: var(--color-lag-green);
     }
 
     /* Pacing Percentages Footer */
@@ -917,6 +923,36 @@
       font-weight: 600;
     }
 
+    /* History Collapsible Tab */
+    .history-chart-collapsible {
+      margin-top: 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 0.75rem;
+    }
+
+    .btn-history-toggle {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0.25rem 0;
+      transition: color 0.2s;
+    }
+
+    .btn-history-toggle:hover {
+      color: var(--text-primary);
+    }
+
+    .history-chart-wrapper {
+      transition: all 0.3s ease;
+    }
+
     footer {
       margin-top: 3rem;
       margin-bottom: 1.5rem;
@@ -1037,13 +1073,7 @@
           <input type="text" id="modal-name" required placeholder="e.g., Claude Pro">
         </div>
         
-        <div class="setting-row">
-          <label>Color Theme Accent</label>
-          <div class="color-swatch-container" id="swatch-container">
-            <!-- Swatches appended dynamically -->
-          </div>
-          <input type="hidden" id="modal-theme" value="cyan">
-        </div>
+
 
         <div class="setting-row">
           <label for="modal-reset-day">Reset Day of Week</label>
@@ -1086,102 +1116,11 @@
   </footer>
 
   <script>
-    // Color Themes Mapping Database
-    const COLOR_THEMES = {
-      cyan: {
-        name: 'Cyan (Gemini)',
-        primary: '#06b6d4',
-        secondary: '#3b82f6',
-        iconBg: 'rgba(6, 182, 212, 0.1)',
-        glow: 'rgba(6, 182, 212, 0.15)',
-        gradient: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)'
-      },
-      purple: {
-        name: 'Purple (Antigravity)',
-        primary: '#a855f7',
-        secondary: '#ec4899',
-        iconBg: 'rgba(168, 85, 247, 0.1)',
-        glow: 'rgba(168, 85, 247, 0.15)',
-        gradient: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)'
-      },
-      indigo: {
-        name: 'Indigo (Blue)',
-        primary: '#6366f1',
-        secondary: '#4f46e5',
-        iconBg: 'rgba(99, 102, 241, 0.1)',
-        glow: 'rgba(99, 102, 241, 0.15)',
-        gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-      },
-      emerald: {
-        name: 'Emerald (Claude)',
-        primary: '#10b981',
-        secondary: '#047857',
-        iconBg: 'rgba(16, 185, 129, 0.1)',
-        glow: 'rgba(16, 185, 129, 0.15)',
-        gradient: 'linear-gradient(135deg, #10b981 0%, #047857 100%)'
-      },
-      lime: {
-        name: 'Lime (Green)',
-        primary: '#84cc16',
-        secondary: '#22c55e',
-        iconBg: 'rgba(132, 204, 22, 0.1)',
-        glow: 'rgba(132, 204, 22, 0.15)',
-        gradient: 'linear-gradient(135deg, #84cc16 0%, #22c55e 100%)'
-      },
-      amber: {
-        name: 'Gold (Amber)',
-        primary: '#f59e0b',
-        secondary: '#d97706',
-        iconBg: 'rgba(245, 158, 11, 0.1)',
-        glow: 'rgba(245, 158, 11, 0.15)',
-        gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-      },
-      orange: {
-        name: 'Orange (OpenAI)',
-        primary: '#f97316',
-        secondary: '#ea580c',
-        iconBg: 'rgba(249, 115, 22, 0.1)',
-        glow: 'rgba(249, 115, 22, 0.15)',
-        gradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
-      },
-      rose: {
-        name: 'Rose (Crimson)',
-        primary: '#f43f5e',
-        secondary: '#be123c',
-        iconBg: 'rgba(244, 63, 94, 0.1)',
-        glow: 'rgba(244, 63, 94, 0.15)',
-        gradient: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)'
-      },
-      fuchsia: {
-        name: 'Fuchsia (Magenta)',
-        primary: '#d946ef',
-        secondary: '#701a75',
-        iconBg: 'rgba(217, 70, 239, 0.1)',
-        glow: 'rgba(217, 70, 239, 0.15)',
-        gradient: 'linear-gradient(135deg, #d946ef 0%, #701a75 100%)'
-      },
-      black: {
-        name: 'Carbon (Black)',
-        primary: '#e4e4e7',
-        secondary: '#09090b',
-        iconBg: 'rgba(255, 255, 255, 0.06)',
-        glow: 'rgba(255, 255, 255, 0.05)',
-        gradient: 'linear-gradient(135deg, #3f3f46 0%, #09090b 100%)'
-      },
-      white: {
-        name: 'Mono (White)',
-        primary: '#ffffff',
-        secondary: '#a1a1aa',
-        iconBg: 'rgba(255, 255, 255, 0.15)',
-        glow: 'rgba(255, 255, 255, 0.2)',
-        gradient: 'linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%)'
-      }
-    };
-
     // System Defaults (Starts empty)
     const DEFAULTS = {
       trackers: [],
-      history: []
+      history: [],
+      historyCycles: []
     };
 
     // Load Database state from localStorage
@@ -1199,6 +1138,10 @@
           state.trackers = state.trackers.filter(t => t.id !== 'gemini-default' && t.id !== 'antigravity-default');
           localStorage.setItem('ai_quota_pacing_state', JSON.stringify(state));
         }
+        if (!state.historyCycles) {
+          state.historyCycles = [];
+          localStorage.setItem('ai_quota_pacing_state', JSON.stringify(state));
+        }
       }
     } catch(e) {
       state = JSON.parse(JSON.stringify(DEFAULTS));
@@ -1206,7 +1149,7 @@
 
     // App Initialization on DOM Load
     document.addEventListener("DOMContentLoaded", () => {
-      buildColorSwatches();
+      checkAndArchiveFinishedCycles();
       renderDashboard();
       renderHistory();
       
@@ -1214,27 +1157,43 @@
       setInterval(tickClock, 1000);
     });
 
-    // Render Color Preset Swatches inside Edit Form Modal
-    function buildColorSwatches() {
-      const container = document.getElementById('swatch-container');
-      container.innerHTML = '';
+    // Check if resets occurred and archive completed cycles automatically
+    function checkAndArchiveFinishedCycles() {
+      let stateChanged = false;
       
-      Object.keys(COLOR_THEMES).forEach(themeKey => {
-        const theme = COLOR_THEMES[themeKey];
-        const swatch = document.createElement('div');
-        swatch.className = `color-swatch ${themeKey === 'cyan' ? 'selected' : ''}`;
-        swatch.dataset.theme = themeKey;
-        swatch.style.background = theme.gradient;
-        swatch.onclick = () => selectColorSwatch(themeKey);
-        container.appendChild(swatch);
+      state.trackers.forEach(tracker => {
+        const { lastReset } = calculateExpectedPace(tracker);
+        const savedLastResetStr = tracker.lastResetTime;
+        
+        if (!savedLastResetStr) {
+          // Initialize baseline
+          tracker.lastResetTime = lastReset.toISOString();
+          stateChanged = true;
+        } else {
+          const savedLastReset = new Date(savedLastResetStr);
+          // If the actual last reset is newer than our saved last reset by at least 1 minute
+          if (lastReset.getTime() - savedLastReset.getTime() > 60 * 1000) {
+            if (!state.historyCycles) state.historyCycles = [];
+            
+            state.historyCycles.push({
+              trackerId: tracker.id,
+              cycleEnd: lastReset.toISOString(), // date of the reset that marked cycle end
+              finalPct: tracker.currentPct
+            });
+            
+            // Reset to 0
+            tracker.currentPct = 0.0;
+            tracker.lastResetTime = lastReset.toISOString();
+            stateChanged = true;
+            
+            showToast(`New weekly cycle started for ${tracker.name}!`);
+          }
+        }
       });
-    }
-
-    function selectColorSwatch(themeKey) {
-      document.querySelectorAll('.color-swatch').forEach(el => {
-        el.classList.toggle('selected', el.dataset.theme === themeKey);
-      });
-      document.getElementById('modal-theme').value = themeKey;
+      
+      if (stateChanged) {
+        saveState();
+      }
     }
 
     // Dynamic Dashboard Renderer
@@ -1253,26 +1212,17 @@
 
       grid.innerHTML = '';
       state.trackers.forEach(tracker => {
-        const theme = COLOR_THEMES[tracker.theme] || COLOR_THEMES.cyan;
-        const styleAttr = `
-          --theme-primary: ${theme.primary};
-          --theme-secondary: ${theme.secondary};
-          --theme-glow: ${theme.glow};
-          --theme-gradient: ${theme.gradient};
-        `;
-        
         const firstLetter = tracker.name.trim().charAt(0).toUpperCase();
 
         const card = document.createElement('div');
         card.className = 'glass-card';
         card.id = `card-${tracker.id}`;
-        card.setAttribute('style', styleAttr);
         
         card.innerHTML = `
           <div>
             <div class="card-header">
               <div class="card-title">
-                <div class="card-icon" style="background: ${theme.iconBg}; color: ${theme.primary}; box-shadow: 0 0 10px ${theme.glow};">${firstLetter}</div>
+                <div class="card-icon" style="background: var(--theme-icon-bg); color: var(--theme-primary); box-shadow: 0 0 10px var(--theme-glow);">${firstLetter}</div>
                 <span title="${tracker.name}">${tracker.name}</span>
               </div>
               <div class="card-actions">
@@ -1341,11 +1291,105 @@
             </div>
             
             <div class="action-btn-container">
-              <button class="btn-action btn-secondary" onclick="logSnapshot('${tracker.id}')">Log Snapshot</button>
-              <button class="btn-action btn-primary" onclick="setUsageToExpected('${tracker.id}')">Sync Expected</button>
+              <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="width: 100%;">Log Snapshot</button>
+            </div>
+          </div>
+
+          <!-- Collapsible 4-Week History Chart -->
+          <div class="history-chart-collapsible">
+            <button class="btn-history-toggle" onclick="toggleCardHistory('${tracker.id}')">
+              <span>📊 View 4-Week History</span>
+              <span class="chevron" id="${tracker.id}-history-chevron">▼</span>
+            </button>
+            <div class="history-chart-wrapper" id="${tracker.id}-history-wrapper" style="display: none; padding-top: 1rem;">
+              ${generateHistoryChartSVG(tracker.id)}
             </div>
           </div>
         `;
+        
+        grid.appendChild(card);
+        
+        // Dynamically bind Slider and Input Box listeners together
+        initInputBinding(tracker.id);
+        
+        // Refresh specific tracker analytics immediately
+        updateTrackerUI(tracker.id);
+      });
+    }
+
+    // Toggle 4-Week History Chart Collapse
+    function toggleCardHistory(id) {
+      const wrapper = document.getElementById(`${id}-history-wrapper`);
+      const chevron = document.getElementById(`${id}-history-chevron`);
+      if (wrapper.style.display === 'none') {
+        wrapper.style.display = 'block';
+        chevron.innerText = '▲';
+      } else {
+        wrapper.style.display = 'none';
+        chevron.innerText = '▼';
+      }
+    }
+
+    // Generate custom SVG bar chart showing the last 4 weekly cycles
+    function generateHistoryChartSVG(trackerId) {
+      const trackerHistory = (state.historyCycles || [])
+        .filter(h => h.trackerId === trackerId)
+        .sort((a, b) => new Date(a.cycleEnd) - new Date(b.cycleEnd));
+      
+      const last4 = trackerHistory.slice(-4);
+      const paddedHistory = [];
+      for (let i = 0; i < 4 - last4.length; i++) {
+        paddedHistory.push({ placeholder: true, finalPct: 0 });
+      }
+      paddedHistory.push(...last4);
+      
+      const svgHeight = 85;
+      const svgWidth = 260;
+      const barWidth = 32;
+      const barSpacing = 28;
+      const startX = 24;
+      
+      let barsHTML = '';
+      let labelsHTML = '';
+      
+      paddedHistory.forEach((item, index) => {
+        const x = startX + index * (barWidth + barSpacing);
+        const pct = item.finalPct;
+        const barHeight = item.placeholder ? 4 : Math.max(4, (pct / 100) * 60);
+        const y = svgHeight - 20 - barHeight;
+        
+        const label = `Wk -${3 - index}`;
+        const barColor = item.placeholder ? 'rgba(255, 255, 255, 0.08)' : 'var(--theme-primary)';
+        const rx = 4;
+        
+        if (item.placeholder) {
+          barsHTML += `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="${barColor}" />`;
+        } else {
+          barsHTML += `
+            <defs>
+              <linearGradient id="bar-grad-${trackerId}-${index}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="var(--theme-primary)" />
+                <stop offset="100%" stop-color="var(--theme-secondary)" />
+              </linearGradient>
+            </defs>
+            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="url(#bar-grad-${trackerId}-${index})" />
+            <text x="${x + barWidth/2}" y="${y - 4}" fill="var(--text-secondary)" font-size="9" text-anchor="middle" font-family="Share Tech Mono">${pct.toFixed(0)}%</text>
+          `;
+        }
+        
+        labelsHTML += `
+          <text x="${x + barWidth/2}" y="${svgHeight - 4}" fill="var(--text-muted)" font-size="10" text-anchor="middle" font-family="Inter">${label}</text>
+        `;
+      });
+      
+      return `
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="${svgHeight}" style="overflow: visible;">
+          ${barsHTML}
+          ${labelsHTML}
+          <line x1="10" y1="${svgHeight - 20}" x2="${svgWidth - 10}" y2="${svgHeight - 20}" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+        </svg>
+      `;
+    }
         
         grid.appendChild(card);
         
@@ -1406,22 +1450,6 @@
       showToast(`Adjusted ${tracker.name} usage by ${delta > 0 ? '+' : ''}${delta}%`);
     }
 
-    // Button trigger: sync current usage percentage directly to the expected pace target
-    function setUsageToExpected(id) {
-      const tracker = state.trackers.find(t => t.id === id);
-      if (!tracker) return;
-
-      const expected = calculateExpectedPace(tracker).expectedPct;
-      tracker.currentPct = parseFloat(expected.toFixed(1));
-      
-      document.getElementById(`${id}-slider`).value = tracker.currentPct;
-      document.getElementById(`${id}-num-input`).value = tracker.currentPct;
-      
-      saveState();
-      updateTrackerUI(id);
-      showToast(`Synced ${tracker.name} to expected pace (${tracker.currentPct}%)`);
-    }
-
     // Calculation: expected pacing, reset intervals, and countdown values
     function calculateExpectedPace(tracker) {
       const now = new Date();
@@ -1475,7 +1503,9 @@
 
       return {
         expectedPct,
-        remainingMs
+        remainingMs,
+        lastReset,
+        nextReset
       };
     }
 
@@ -1511,7 +1541,7 @@
           descEl.innerText = `You are running ${absDeviation}% ahead of the weekly pace. You may hit your quota limit early.`;
         } else if (deviation < -2.0) {
           devEl.innerText = `-${absDeviation}%`;
-          devEl.style.color = "var(--color-lag-amber)";
+          devEl.style.color = "var(--color-lag-green)";
           statusLabelEl.classList.add("status-lag");
           statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Under Pacing Limit";
           descEl.innerText = `You are ${absDeviation}% behind the weekly pacing line. You can safely utilize more.`;
@@ -1585,14 +1615,11 @@
         document.getElementById('modal-reset-day').value = tracker.resetDay;
         document.getElementById('modal-reset-time').value = tracker.resetTime;
         document.getElementById('modal-utc').checked = tracker.useUtc;
-        
-        selectColorSwatch(tracker.theme || 'cyan');
       } else {
         // Create Mode
         modalTitle.innerText = "Add AI Tracker";
         submitBtn.innerText = "Add Tracker";
         document.getElementById('edit-tracker-id').value = '';
-        selectColorSwatch('cyan');
       }
       
       modal.classList.add('open');
@@ -1615,7 +1642,6 @@
       
       const id = document.getElementById('edit-tracker-id').value;
       const name = document.getElementById('modal-name').value.trim();
-      const theme = document.getElementById('modal-theme').value;
       const resetDay = parseInt(document.getElementById('modal-reset-day').value);
       const resetTime = document.getElementById('modal-reset-time').value || "00:00";
       const useUtc = document.getElementById('modal-utc').checked;
@@ -1625,7 +1651,6 @@
         const tracker = state.trackers.find(t => t.id === id);
         if (tracker) {
           tracker.name = name;
-          tracker.theme = theme;
           tracker.resetDay = resetDay;
           tracker.resetTime = resetTime;
           tracker.useUtc = useUtc;
@@ -1636,7 +1661,6 @@
         const newTracker = {
           id: `ai-${Date.now()}`,
           name,
-          theme,
           resetDay,
           resetTime,
           useUtc,
