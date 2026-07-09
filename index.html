@@ -2025,9 +2025,9 @@
       
       // Diagonal ideal pace line
       const diagX1 = padding.left;
-      const diagY1 = padding.top + chartHeight;
+      const diagY1 = tracker.trackingDirection === 'down' ? padding.top : padding.top + chartHeight;
       const diagX2 = padding.left + chartWidth;
-      const diagY2 = padding.top;
+      const diagY2 = tracker.trackingDirection === 'down' ? padding.top + chartHeight : padding.top;
       
       let pathHTML = '';
       let pointsHTML = '';
