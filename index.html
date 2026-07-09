@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AI Quota Pacing Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Quota Utilization Tracker</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,6 +20,7 @@
       --color-lead-red: #ef4444;    /* Lead zone red */
       --color-lag-green: #22c55e;   /* Lag zone green */
       --color-track-green: #10b981;
+      --color-lag-amber: #fbbf24;   /* Lag zone amber */
       
       --theme-primary: #6366f1;     /* Default unified theme accent */
       --theme-secondary: #4f46e5;
@@ -298,6 +299,7 @@
       font-weight: 800;
       line-height: 1;
       margin-bottom: 0.5rem;
+      font-variant-numeric: tabular-nums;
     }
 
     .deviation-desc {
@@ -401,6 +403,7 @@
     .pct-val {
       font-family: 'Share Tech Mono', monospace;
       font-weight: bold;
+      font-variant-numeric: tabular-nums;
     }
 
     /* Input & Adjust Section */
@@ -846,6 +849,19 @@
       margin-bottom: 0.5rem;
     }
 
+    /* Pacing curve charts grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      width: 100%;
+    }
+    @media (min-width: 768px) {
+      .charts-grid {
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      }
+    }
+
     /* History / Logs Section */
     .history-section {
       margin-top: 1rem;
@@ -1020,8 +1036,8 @@
   </div>
 
   <header>
-    <h1>AI Quota Pacing Tracker</h1>
-    <p>Optimize your weekly pacing limits for any AI system</p>
+    <h1>AI Quota Utilization Tracker</h1>
+    <p>Optimize your weekly/monthly utilization limits for any AI system</p>
   </header>
 
   <!-- Control Buttons for Settings & Add AI -->
@@ -1055,12 +1071,9 @@
   <div class="container" style="margin-top: 1.5rem;">
     <div class="glass-card full-width history-section">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div class="history-title" style="margin-bottom: 0;">Pacing Curve Analysis</div>
-        <select id="pacing-chart-select" onchange="renderPacingCurveChart()" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem; font-family: inherit;">
-          <!-- Options populated dynamically -->
-        </select>
+        <div class="history-title" style="margin-bottom: 0;">Utilization Curve Analysis</div>
       </div>
-      <div id="pacing-chart-container" style="width: 100%; min-height: 180px; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 1rem; border: 1px solid rgba(255,255,255,0.03);">
+      <div id="pacing-chart-container" style="width: 100%; min-height: 180px; background: transparent; padding: 0.5rem 0; border: none;">
         <!-- SVG rendered here -->
       </div>
     </div>
@@ -1069,7 +1082,7 @@
   <!-- Pacing History log -->
   <div class="container" style="margin-top: 1.5rem;">
     <div class="glass-card full-width history-section">
-      <div class="history-title">Pacing Logs & Snapshots</div>
+      <div class="history-title">Utilization Logs & Snapshots</div>
       <div class="history-list" id="history-list">
         <!-- Rendered history logs -->
       </div>
@@ -1091,9 +1104,33 @@
           <input type="text" id="modal-name" required placeholder="e.g., Claude Pro">
         </div>
         
+        <div class="setting-row">
+          <label for="modal-quota-mode">Tracking Mode</label>
+          <select id="modal-quota-mode" onchange="toggleModalQuotaFields()">
+            <option value="percentage">Percentage (0 - 100%)</option>
+            <option value="credits">Credits Mode (e.g. $20.00)</option>
+          </select>
+        </div>
 
+        <div class="setting-row" id="modal-max-quota-row" style="display: none;">
+          <label for="modal-max-quota">Max Credits Limit</label>
+          <input type="number" id="modal-max-quota" step="0.01" min="0.01" value="20.00">
+        </div>
+
+        <div class="setting-row" id="modal-currency-row" style="display: none;">
+          <label for="modal-currency">Currency Symbol</label>
+          <input type="text" id="modal-currency" value="$" placeholder="e.g. $, €">
+        </div>
 
         <div class="setting-row">
+          <label for="modal-reset-freq">Reset Frequency</label>
+          <select id="modal-reset-freq" onchange="toggleModalFreqFields()">
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        <div class="setting-row" id="modal-reset-day-row">
           <label for="modal-reset-day">Reset Day of Week</label>
           <select id="modal-reset-day">
             <option value="0">Sunday</option>
@@ -1104,6 +1141,11 @@
             <option value="5">Friday</option>
             <option value="6">Saturday</option>
           </select>
+        </div>
+
+        <div class="setting-row" id="modal-reset-date-row" style="display: none;">
+          <label for="modal-reset-date">Reset Date of Month</label>
+          <input type="number" id="modal-reset-date" min="1" max="31" value="1">
         </div>
 
         <div class="setting-row">
@@ -1130,7 +1172,7 @@
   <div class="toast-container" id="toast-container"></div>
 
   <footer>
-    <p>AI Quota Pacing Tracker &bull; Standalone HTML Application<br>Optimized for Mobile & Desktop &bull; Data stored in browser storage</p>
+    <p>AI Quota Utilization Tracker &bull; Standalone HTML Application<br>Optimized for Mobile & Desktop &bull; Data stored in browser storage</p>
   </footer>
 
   <script>
@@ -1206,7 +1248,7 @@
             tracker.lastResetTime = lastReset.toISOString();
             stateChanged = true;
             
-            showToast(`New weekly cycle started for ${tracker.name}!`);
+            showToast(`New cycle started for ${tracker.name}!`);
           }
         }
       });
@@ -1214,6 +1256,18 @@
       if (stateChanged) {
         saveState();
       }
+    }
+
+    // Format utility for displaying usage values
+    function formatUsageValue(tracker, pct) {
+      const mode = tracker ? (tracker.quotaMode || 'percentage') : 'percentage';
+      if (mode === 'credits') {
+        const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+        const maxVal = tracker.maxQuota || 100.0;
+        const val = (pct / 100) * maxVal;
+        return `${symbol}${val.toFixed(2)} (${pct.toFixed(2)}%)`;
+      }
+      return `${pct.toFixed(2)}%`;
     }
 
     // Dynamic Dashboard Renderer
@@ -1233,6 +1287,12 @@
       grid.innerHTML = '';
       state.trackers.forEach(tracker => {
         const firstLetter = tracker.name.trim().charAt(0).toUpperCase();
+        const isCredits = tracker.quotaMode === 'credits';
+        const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+        const displayVal = isCredits ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2) : tracker.currentPct.toFixed(2);
+        const maxVal = isCredits ? tracker.maxQuota : 100;
+        const stepVal = isCredits ? 0.01 : 0.1;
+        const inputLabel = isCredits ? `Update Current Usage (${symbol})` : 'Update Current Usage (%)';
 
         const card = document.createElement('div');
         card.className = 'glass-card';
@@ -1254,71 +1314,72 @@
             <div class="card-meta">
               <div class="countdown-box" id="${tracker.id}-countdown">
                 <span>Reset in:</span>
-                <span class="time" id="${tracker.id}-reset-time">--d --h --m --s</span>
+                <span class="time" id="${tracker.id}-reset-time">--d --h --m</span>
               </div>
             </div>
+ 
+            <div class="card-tabs" style="display: flex; gap: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1rem; margin-top: 0.5rem;">
+              <button class="tab-btn active" onclick="switchCardTab('${tracker.id}', 'current')" id="${tracker.id}-btn-current" style="background: none; border: none; border-bottom: 2px solid var(--theme-primary); color: var(--text-primary); padding: 0.5rem 0; cursor: pointer; font-size: 0.9rem; font-weight: 600; flex: 1;">Current</button>
+              <button class="tab-btn" onclick="switchCardTab('${tracker.id}', 'history')" id="${tracker.id}-btn-history" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); padding: 0.5rem 0; cursor: pointer; font-size: 0.9rem; font-weight: 600; flex: 1;">History</button>
+            </div>
 
-            <div class="metric-section">
-              <div class="pacing-status" id="${tracker.id}-status-label">
-                <span class="status-dot"></span>
-                <span>Calculating...</span>
+            <div id="${tracker.id}-content-current">
+              <div class="metric-section">
+                <div class="pacing-status" id="${tracker.id}-status-label">
+                  <span class="status-dot"></span>
+                  <span>Calculating...</span>
+                </div>
+                <div class="deviation-value" id="${tracker.id}-deviation">±0.0%</div>
+                <div class="deviation-desc" id="${tracker.id}-desc">Utilization analytics loading...</div>
               </div>
-              <div class="deviation-value" id="${tracker.id}-deviation">±0.0%</div>
-              <div class="deviation-desc" id="${tracker.id}-desc">Pacing analytics loader...</div>
-            </div>
-
-            <!-- Visual timeline progress graph -->
-            <div class="timeline-visualizer">
-              <div class="timeline-labels">
-                <span>Start</span>
-                <span>Reset</span>
+  
+              <!-- Visual timeline progress graph -->
+              <div class="timeline-visualizer">
+                <div class="timeline-labels">
+                  <span>Start</span>
+                  <span>Reset</span>
+                </div>
+                <div class="timeline-bar-bg">
+                  <div class="timeline-current-fill" id="${tracker.id}-bar-fill"></div>
+                  <div class="lag-zone" id="${tracker.id}-lag-zone"></div>
+                  <div class="lead-zone" id="${tracker.id}-lead-zone"></div>
+                  <div class="timeline-marker" id="${tracker.id}-marker"></div>
+                </div>
               </div>
-              <div class="timeline-bar-bg">
-                <div class="timeline-current-fill" id="${tracker.id}-bar-fill"></div>
-                <div class="lag-zone" id="${tracker.id}-lag-zone"></div>
-                <div class="lead-zone" id="${tracker.id}-lead-zone"></div>
-                <div class="timeline-marker" id="${tracker.id}-marker"></div>
+  
+              <div class="pct-row">
+                <span class="pct-label">Expected Utilization Target:</span>
+                <span class="pct-val" id="${tracker.id}-expected-pct">0.0%</span>
               </div>
-            </div>
-
-            <div class="pct-row">
-              <span class="pct-label">Expected Pace Target:</span>
-              <span class="pct-val" id="${tracker.id}-expected-pct">0.0%</span>
-            </div>
-            <div class="pct-row">
-              <span class="pct-label">Your Current Usage:</span>
-              <span class="pct-val" id="${tracker.id}-current-pct">0.0%</span>
-            </div>
-          </div>
-
-          <!-- Input Section -->
-          <div class="input-section">
-            <div class="input-label-container">
-              <span class="input-label">Update Current Usage</span>
-              <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="100" step="0.1" value="${tracker.currentPct}">
+              <div class="pct-row">
+                <span class="pct-label">Your Current Usage:</span>
+                <span class="pct-val" id="${tracker.id}-current-pct">0.0%</span>
+              </div>
+              
+              <!-- Input Section -->
+              <div class="input-section">
+                <div class="input-label-container">
+                  <span class="input-label">${inputLabel}</span>
+                  <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="${maxVal}" step="${stepVal}" value="${displayVal}">
+                </div>
+                
+                <div class="quick-adjust-buttons">
+                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -1)">-1%</button>
+                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -2)">-2%</button>
+                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -5)">-5%</button>
+                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -10)">-10%</button>
+                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -20)">-20%</button>
+                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -50)">-50%</button>
+                </div>
+                
+                <div class="action-btn-container">
+                  <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="width: 100%;">Log Snapshot</button>
+                </div>
+              </div>
             </div>
             
-            <div class="quick-adjust-buttons">
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -1)">-1%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -2)">-2%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -5)">-5%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -10)">-10%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -20)">-20%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -50)">-50%</button>
-            </div>
-            
-            <div class="action-btn-container">
-              <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="width: 100%;">Log Snapshot</button>
-            </div>
-          </div>
-
-          <!-- Collapsible 4-Week History Chart -->
-          <div class="history-chart-collapsible">
-            <button class="btn-history-toggle" onclick="toggleCardHistory('${tracker.id}')">
-              <span>📊 View 4-Week History</span>
-              <span class="chevron" id="${tracker.id}-history-chevron">▼</span>
-            </button>
-            <div class="history-chart-wrapper" id="${tracker.id}-history-wrapper" style="display: none; padding-top: 1rem;">
+            <div id="${tracker.id}-content-history" style="display: none; padding-top: 0.5rem; text-align: center;">
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Past 4 Cycles History</p>
               ${generateHistoryChartSVG(tracker.id)}
             </div>
           </div>
@@ -1338,6 +1399,30 @@
     }
 
     // Toggle 4-Week History Chart Collapse
+    
+    function switchCardTab(id, tab) {
+      const btnCurrent = document.getElementById(`${id}-btn-current`);
+      const btnHistory = document.getElementById(`${id}-btn-history`);
+      const contentCurrent = document.getElementById(`${id}-content-current`);
+      const contentHistory = document.getElementById(`${id}-content-history`);
+      
+      if (tab === 'current') {
+        btnCurrent.style.borderBottomColor = 'var(--theme-primary)';
+        btnCurrent.style.color = 'var(--text-primary)';
+        btnHistory.style.borderBottomColor = 'transparent';
+        btnHistory.style.color = 'var(--text-secondary)';
+        contentCurrent.style.display = 'block';
+        contentHistory.style.display = 'none';
+      } else {
+        btnHistory.style.borderBottomColor = 'var(--theme-primary)';
+        btnHistory.style.color = 'var(--text-primary)';
+        btnCurrent.style.borderBottomColor = 'transparent';
+        btnCurrent.style.color = 'var(--text-secondary)';
+        contentHistory.style.display = 'block';
+        contentCurrent.style.display = 'none';
+      }
+    }
+
     function toggleCardHistory(id) {
       const wrapper = document.getElementById(`${id}-history-wrapper`);
       const chevron = document.getElementById(`${id}-history-chevron`);
@@ -1352,6 +1437,11 @@
 
     // Generate custom SVG bar chart showing the last 4 weekly cycles
     function generateHistoryChartSVG(trackerId) {
+      const tracker = state.trackers.find(t => t.id === trackerId);
+      const isCredits = tracker && tracker.quotaMode === 'credits';
+      const symbol = tracker ? (tracker.currencySymbol || '$') : '$';
+      const maxQuota = tracker ? (tracker.maxQuota || 100) : 100;
+
       const trackerHistory = (state.historyCycles || [])
         .filter(h => h.trackerId === trackerId)
         .sort((a, b) => new Date(a.cycleEnd) - new Date(b.cycleEnd));
@@ -1385,15 +1475,23 @@
         if (item.placeholder) {
           barsHTML += `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="${barColor}" />`;
         } else {
+          const displayText = isCredits ? `${symbol}${((pct / 100) * maxQuota).toFixed(2)}` : `${pct.toFixed(2)}%`;
           barsHTML += `
             <defs>
               <linearGradient id="bar-grad-${trackerId}-${index}" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="var(--theme-primary)" />
-                <stop offset="100%" stop-color="var(--theme-secondary)" />
+                <stop offset="0%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#3b82f6" />
               </linearGradient>
+              <filter id="glow-bar-${trackerId}">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
             </defs>
-            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="url(#bar-grad-${trackerId}-${index})" />
-            <text x="${x + barWidth/2}" y="${y - 4}" fill="var(--text-secondary)" font-size="9" text-anchor="middle" font-family="Share Tech Mono">${pct.toFixed(0)}%</text>
+            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="url(#bar-grad-${trackerId}-${index})" stroke="none" filter="url(#glow-bar-${trackerId})" />
+            <text x="${x + barWidth/2}" y="${y - 4}" fill="var(--text-secondary)" font-size="9" text-anchor="middle" font-family="Share Tech Mono">${displayText}</text>
           `;
         }
         
@@ -1419,8 +1517,14 @@
       numInput.addEventListener('input', (e) => {
         let val = parseFloat(e.target.value) || 0;
         if (val < 0) val = 0;
-        if (val > 100) val = 100;
-        updateStatePct(id, val);
+        
+        const tracker = state.trackers.find(t => t.id === id);
+        if (tracker) {
+          const maxVal = tracker.quotaMode === 'credits' ? tracker.maxQuota : 100;
+          if (val > maxVal) val = maxVal;
+          let pct = tracker.quotaMode === 'credits' ? (val / tracker.maxQuota) * 100 : val;
+          updateStatePct(id, pct);
+        }
       });
     }
 
@@ -1442,10 +1546,14 @@
       if (val < 0) val = 0;
       if (val > 100) val = 100;
       
-      tracker.currentPct = parseFloat(val.toFixed(1));
+      tracker.currentPct = parseFloat(val.toFixed(2));
       
       // Update DOM node directly to prevent re-render focus disruption
-      document.getElementById(`${id}-num-input`).value = tracker.currentPct;
+      const numInput = document.getElementById(`${id}-num-input`);
+      if (numInput) {
+        const isCredits = tracker.quotaMode === 'credits';
+        numInput.value = isCredits ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2) : tracker.currentPct.toFixed(2);
+      }
       
       saveState();
       updateTrackerUI(id);
@@ -1455,52 +1563,85 @@
     // Calculation: expected pacing, reset intervals, and countdown values
     function calculateExpectedPace(tracker) {
       const now = new Date();
+      const resetFreq = tracker.resetFreq || 'weekly';
       const resetDay = tracker.resetDay;
+      const resetDate = tracker.resetDate || 1;
       const resetTimeStr = tracker.resetTime;
       const useUtc = tracker.useUtc;
 
       const [hours, minutes] = resetTimeStr.split(':').map(Number);
       let lastReset, nextReset;
 
-      if (useUtc) {
-        const currentWeekReset = new Date(now);
-        const currentDay = now.getUTCDay();
-        const dayDiff = resetDay - currentDay;
-        
-        currentWeekReset.setUTCDate(now.getUTCDate() + dayDiff);
-        currentWeekReset.setUTCHours(hours, minutes, 0, 0);
-
-        if (now.getTime() >= currentWeekReset.getTime()) {
-          lastReset = currentWeekReset;
-          nextReset = new Date(currentWeekReset);
-          nextReset.setUTCDate(currentWeekReset.getUTCDate() + 7);
+      if (resetFreq === 'monthly') {
+        let currentMonthReset = new Date(now);
+        if (useUtc) {
+          currentMonthReset.setUTCDate(resetDate);
+          currentMonthReset.setUTCHours(hours, minutes, 0, 0);
+          
+          if (now.getTime() >= currentMonthReset.getTime()) {
+            lastReset = currentMonthReset;
+            nextReset = new Date(currentMonthReset);
+            nextReset.setUTCMonth(currentMonthReset.getUTCMonth() + 1);
+          } else {
+            nextReset = currentMonthReset;
+            lastReset = new Date(currentMonthReset);
+            lastReset.setUTCMonth(currentMonthReset.getUTCMonth() - 1);
+          }
         } else {
-          nextReset = currentWeekReset;
-          lastReset = new Date(currentWeekReset);
-          lastReset.setUTCDate(currentWeekReset.getUTCDate() - 7);
+          currentMonthReset.setDate(resetDate);
+          currentMonthReset.setHours(hours, minutes, 0, 0);
+          
+          if (now.getTime() >= currentMonthReset.getTime()) {
+            lastReset = currentMonthReset;
+            nextReset = new Date(currentMonthReset);
+            nextReset.setMonth(currentMonthReset.getMonth() + 1);
+          } else {
+            nextReset = currentMonthReset;
+            lastReset = new Date(currentMonthReset);
+            lastReset.setMonth(currentMonthReset.getMonth() - 1);
+          }
         }
       } else {
-        const currentWeekReset = new Date(now);
-        const currentDay = now.getDay();
-        const dayDiff = resetDay - currentDay;
-        
-        currentWeekReset.setDate(now.getDate() + dayDiff);
-        currentWeekReset.setHours(hours, minutes, 0, 0);
+        if (useUtc) {
+          const currentWeekReset = new Date(now);
+          const currentDay = now.getUTCDay();
+          const dayDiff = resetDay - currentDay;
+          
+          currentWeekReset.setUTCDate(now.getUTCDate() + dayDiff);
+          currentWeekReset.setUTCHours(hours, minutes, 0, 0);
 
-        if (now.getTime() >= currentWeekReset.getTime()) {
-          lastReset = currentWeekReset;
-          nextReset = new Date(currentWeekReset);
-          nextReset.setDate(currentWeekReset.getDate() + 7);
+          if (now.getTime() >= currentWeekReset.getTime()) {
+            lastReset = currentWeekReset;
+            nextReset = new Date(currentWeekReset);
+            nextReset.setUTCDate(currentWeekReset.getUTCDate() + 7);
+          } else {
+            nextReset = currentWeekReset;
+            lastReset = new Date(currentWeekReset);
+            lastReset.setUTCDate(currentWeekReset.getUTCDate() - 7);
+          }
         } else {
-          nextReset = currentWeekReset;
-          lastReset = new Date(currentWeekReset);
-          lastReset.setDate(currentWeekReset.getDate() - 7);
+          const currentWeekReset = new Date(now);
+          const currentDay = now.getDay();
+          const dayDiff = resetDay - currentDay;
+          
+          currentWeekReset.setDate(now.getDate() + dayDiff);
+          currentWeekReset.setHours(hours, minutes, 0, 0);
+
+          if (now.getTime() >= currentWeekReset.getTime()) {
+            lastReset = currentWeekReset;
+            nextReset = new Date(currentWeekReset);
+            nextReset.setDate(currentWeekReset.getDate() + 7);
+          } else {
+            nextReset = currentWeekReset;
+            lastReset = new Date(currentWeekReset);
+            lastReset.setDate(currentWeekReset.getDate() - 7);
+          }
         }
       }
 
-      const totalWeekMs = 7 * 24 * 60 * 60 * 1000;
+      const totalCycleMs = nextReset.getTime() - lastReset.getTime();
       const elapsedMs = now.getTime() - lastReset.getTime();
-      const expectedPct = Math.min(100, Math.max(0, (elapsedMs / totalWeekMs) * 100));
+      const expectedPct = Math.min(100, Math.max(0, (elapsedMs / totalCycleMs) * 100));
       const remainingMs = nextReset.getTime() - now.getTime();
 
       return {
@@ -1515,18 +1656,24 @@
     function updateTrackerUI(id) {
       const tracker = state.trackers.find(t => t.id === id);
       if (!tracker) return;
-
+ 
       const data = calculateExpectedPace(tracker);
       const current = tracker.currentPct;
       
       const expectedEl = document.getElementById(`${id}-expected-pct`);
       const currentEl = document.getElementById(`${id}-current-pct`);
-      if (expectedEl) expectedEl.innerText = `${data.expectedPct.toFixed(1)}%`;
-      if (currentEl) currentEl.innerText = `${current.toFixed(1)}%`;
-
+      if (expectedEl) expectedEl.innerText = formatUsageValue(tracker, data.expectedPct);
+      if (currentEl) currentEl.innerText = formatUsageValue(tracker, current);
+ 
       // Set deviation status & labels
       const deviation = current - data.expectedPct;
-      const absDeviation = Math.abs(deviation).toFixed(1);
+      const absDeviation = Math.abs(deviation).toFixed(2);
+      
+      const isCredits = tracker.quotaMode === 'credits';
+      const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+      const maxVal = tracker.maxQuota || 100.0;
+      const devVal = (deviation / 100) * maxVal;
+      const absDevVal = Math.abs(devVal).toFixed(2);
       
       const devEl = document.getElementById(`${id}-deviation`);
       const statusLabelEl = document.getElementById(`${id}-status-label`);
@@ -1536,36 +1683,42 @@
         statusLabelEl.className = "pacing-status";
         
         if (deviation > 2.0) {
-          devEl.innerText = `+${absDeviation}%`;
+          devEl.innerText = isCredits ? `+${symbol}${absDevVal}` : `+${absDeviation}%`;
           devEl.style.color = "var(--color-lead-red)";
           statusLabelEl.classList.add("status-lead");
-          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Over Pacing Limit";
-          descEl.innerText = `You are running ${absDeviation}% ahead of the weekly pace. You may hit your quota limit early.`;
+          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Over Utilization Limit";
+          descEl.innerText = isCredits 
+            ? `You are running ${symbol}${absDevVal} ahead of the cycle utilization. You may hit your quota limit early.` 
+            : `You are running ${absDeviation}% ahead of the cycle utilization. You may hit your quota limit early.`;
         } else if (deviation < -2.0) {
-          devEl.innerText = `-${absDeviation}%`;
+          devEl.innerText = isCredits ? `-${symbol}${absDevVal}` : `-${absDeviation}%`;
           devEl.style.color = "var(--color-lag-green)";
           statusLabelEl.classList.add("status-lag");
-          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Under Pacing Limit";
-          descEl.innerText = `You are ${absDeviation}% behind the weekly pacing line. You can safely utilize more.`;
+          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Under Utilization Limit";
+          descEl.innerText = isCredits 
+            ? `You are ${symbol}${absDevVal} behind the cycle utilization line. You can safely utilize more.` 
+            : `You are ${absDeviation}% behind the cycle utilization line. You can safely utilize more.`;
         } else {
-          devEl.innerText = `${deviation >= 0 ? '+' : '-'}${absDeviation}%`;
+          devEl.innerText = isCredits 
+            ? (devVal >= 0 ? `+${symbol}${absDevVal}` : `-${symbol}${absDevVal}`)
+            : `${deviation >= 0 ? '+' : '-'}${absDeviation}%`;
           devEl.style.color = "var(--color-track-green)";
           statusLabelEl.classList.add("status-track");
-          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Optimal Pace";
-          descEl.innerText = `Awesome! You are pacing perfectly to hit 100% usage right on schedule.`;
+          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Optimal Utilization";
+          descEl.innerText = `Awesome! You are utilizing perfectly to hit 100% usage right on schedule.`;
         }
       }
-
+ 
       // Update progress bar visuals
       const barFill = document.getElementById(`${id}-bar-fill`);
       const marker = document.getElementById(`${id}-marker`);
       const lagZone = document.getElementById(`${id}-lag-zone`);
       const leadZone = document.getElementById(`${id}-lead-zone`);
-
+ 
       if (barFill && marker && lagZone && leadZone) {
         marker.style.left = `${data.expectedPct}%`;
         barFill.style.width = `${current}%`;
-
+ 
         if (deviation >= 0) {
           lagZone.style.width = '0%';
           leadZone.style.left = `${data.expectedPct}%`;
@@ -1576,7 +1729,7 @@
           lagZone.style.width = `${Math.abs(deviation)}%`;
         }
       }
-
+ 
       // Update countdown display text
       const resetTimeEl = document.getElementById(`${id}-reset-time`);
       if (resetTimeEl) {
@@ -1585,7 +1738,7 @@
         const minutes = Math.floor((data.remainingMs % (3600 * 1000)) / (60 * 1000));
         const seconds = Math.floor((data.remainingMs % (60 * 1000)) / 1000);
         
-        resetTimeEl.innerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        resetTimeEl.innerText = `${days}d ${hours}h ${minutes}m`;
       }
     }
 
@@ -1594,6 +1747,31 @@
       state.trackers.forEach(t => {
         updateTrackerUI(t.id);
       });
+    }
+
+    // Helper to show/hide modal fields based on selected mode
+        function toggleModalFreqFields() {
+      const freq = document.getElementById('modal-reset-freq').value;
+      if (freq === 'monthly') {
+        document.getElementById('modal-reset-day-row').style.display = 'none';
+        document.getElementById('modal-reset-date-row').style.display = 'block';
+      } else {
+        document.getElementById('modal-reset-day-row').style.display = 'block';
+        document.getElementById('modal-reset-date-row').style.display = 'none';
+      }
+    }
+
+    function toggleModalQuotaFields() {
+      const mode = document.getElementById('modal-quota-mode').value;
+      const maxQuotaRow = document.getElementById('modal-max-quota-row');
+      const currencyRow = document.getElementById('modal-currency-row');
+      if (mode === 'credits') {
+        maxQuotaRow.style.display = 'block';
+        currencyRow.style.display = 'block';
+      } else {
+        maxQuotaRow.style.display = 'none';
+        currencyRow.style.display = 'none';
+      }
     }
 
     // Trigger: Open Add or Edit Overlay Drawer Modal
@@ -1614,16 +1792,29 @@
         submitBtn.innerText = "Save Changes";
         document.getElementById('edit-tracker-id').value = id;
         document.getElementById('modal-name').value = tracker.name;
+        document.getElementById('modal-reset-freq').value = tracker.resetFreq || 'weekly';
         document.getElementById('modal-reset-day').value = tracker.resetDay;
+        document.getElementById('modal-reset-date').value = tracker.resetDate || 1;
         document.getElementById('modal-reset-time').value = tracker.resetTime;
         document.getElementById('modal-utc').checked = tracker.useUtc;
+        
+        document.getElementById('modal-quota-mode').value = tracker.quotaMode || 'percentage';
+        document.getElementById('modal-max-quota').value = tracker.maxQuota || 20.00;
+        document.getElementById('modal-currency').value = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
       } else {
         // Create Mode
         modalTitle.innerText = "Add AI Tracker";
         submitBtn.innerText = "Add Tracker";
         document.getElementById('edit-tracker-id').value = '';
+        document.getElementById('modal-reset-freq').value = 'weekly';
+        document.getElementById('modal-reset-date').value = '1';
+        document.getElementById('modal-quota-mode').value = 'percentage';
+        document.getElementById('modal-max-quota').value = '20.00';
+        document.getElementById('modal-currency').value = '$';
       }
       
+      toggleModalQuotaFields();
+      toggleModalFreqFields();
       modal.classList.add('open');
     }
 
@@ -1644,18 +1835,29 @@
       
       const id = document.getElementById('edit-tracker-id').value;
       const name = document.getElementById('modal-name').value.trim();
+      const resetFreq = document.getElementById('modal-reset-freq').value;
       const resetDay = parseInt(document.getElementById('modal-reset-day').value);
+      const resetDate = parseInt(document.getElementById('modal-reset-date').value) || 1;
       const resetTime = document.getElementById('modal-reset-time').value || "00:00";
       const useUtc = document.getElementById('modal-utc').checked;
       
+      const quotaMode = document.getElementById('modal-quota-mode').value;
+      const maxQuota = quotaMode === 'credits' ? parseFloat(document.getElementById('modal-max-quota').value) || 20.00 : 100.0;
+      const currencySymbol = document.getElementById('modal-currency').value.trim() || '$';
+
       if (id) {
         // Update existing
         const tracker = state.trackers.find(t => t.id === id);
         if (tracker) {
           tracker.name = name;
+          tracker.resetFreq = resetFreq;
           tracker.resetDay = resetDay;
+          tracker.resetDate = resetDate;
           tracker.resetTime = resetTime;
           tracker.useUtc = useUtc;
+          tracker.quotaMode = quotaMode;
+          tracker.maxQuota = maxQuota;
+          tracker.currencySymbol = currencySymbol;
           showToast(`Updated tracker: ${name}`);
         }
       } else {
@@ -1663,9 +1865,14 @@
         const newTracker = {
           id: `ai-${Date.now()}`,
           name,
+          resetFreq,
           resetDay,
+          resetDate,
           resetTime,
           useUtc,
+          quotaMode,
+          maxQuota,
+          currencySymbol,
           currentPct: 0.0
         };
         state.trackers.push(newTracker);
@@ -1755,10 +1962,25 @@
 
       let html = '';
       state.history.forEach(item => {
+        const tracker = state.trackers.find(t => t.id === item.trackerId);
         const dateStr = new Date(item.timestamp).toLocaleString();
         const paceColor = item.deviation > 2 ? 'var(--color-lead-red)' : item.deviation < -2 ? 'var(--color-lag-green)' : 'var(--color-track-green)';
         const paceLabel = item.deviation > 2 ? 'Lead' : item.deviation < -2 ? 'Lag' : 'On Track';
-        const deviationText = item.deviation >= 0 ? `+${item.deviation.toFixed(1)}%` : `${item.deviation.toFixed(1)}%`;
+        
+        // Format deviation and usage depending on tracking mode
+        let usageText = '';
+        let deviationText = '';
+        if (tracker && tracker.quotaMode === 'credits') {
+          const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+          const maxVal = tracker.maxQuota || 100.0;
+          const currentVal = (item.currentPct / 100) * maxVal;
+          const devVal = (item.deviation / 100) * maxVal;
+          usageText = `${symbol}${currentVal.toFixed(2)}`;
+          deviationText = devVal >= 0 ? `+${symbol}${devVal.toFixed(2)}` : `-${symbol}${Math.abs(devVal).toFixed(2)}`;
+        } else {
+          usageText = `${item.currentPct.toFixed(2)}%`;
+          deviationText = item.deviation >= 0 ? `+${item.deviation.toFixed(2)}%` : `${item.deviation.toFixed(2)}%`;
+        }
 
         html += `
           <div class="history-item">
@@ -1767,7 +1989,7 @@
               <span class="history-time">${dateStr}</span>
             </div>
             <div class="history-values">
-              <span class="history-usage">${item.currentPct.toFixed(1)}%</span>
+              <span class="history-usage">${usageText}</span>
               <span class="history-pacing" style="color: ${paceColor}; margin-left: 8px;">
                 ${paceLabel} (${deviationText})
               </span>
@@ -1778,121 +2000,190 @@
       listEl.innerHTML = html;
     }
 
-    // Populate the dropdown menu for the pacing analysis chart
+    // Populate chart select dropdown (Deprecated - displaying all charts at once)
     function populateChartSelect() {
-      const select = document.getElementById('pacing-chart-select');
-      if (!select) return;
-      
-      const savedVal = select.value;
-      select.innerHTML = '';
-      
-      state.trackers.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t.id;
-        opt.innerText = t.name;
-        select.appendChild(opt);
-      });
-      
-      // Restore selected value if it still exists
-      if (savedVal && state.trackers.some(t => t.id === savedVal)) {
-        select.value = savedVal;
-      } else if (state.trackers.length > 0) {
-        select.value = state.trackers[0].id;
-      }
+      // No-op since dropdown is removed
     }
 
-    // Render the SVG chart comparing entered logs against the ideal pace line
-    function renderPacingCurveChart() {
-      const container = document.getElementById('pacing-chart-container');
-      const select = document.getElementById('pacing-chart-select');
-      if (!container || !select) return;
-      
-      const trackerId = select.value;
-      if (!trackerId) {
-        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">No tracker configured. Add an AI Tracker above to start visualization.</div>`;
-        return;
-      }
-      
-      const tracker = state.trackers.find(t => t.id === trackerId);
-      if (!tracker) {
-        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">Tracker not found.</div>`;
-        return;
-      }
-      
-      // Filter log snapshots for this tracker
+    // Generate single pacing curve SVG chart
+    function generateSinglePacingChartHTML(tracker) {
+      const trackerId = tracker.id;
+      const isCredits = tracker.quotaMode === 'credits';
+      const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+      const maxQuota = tracker.maxQuota || 100.0;
+
       const logs = (state.history || [])
         .filter(l => l.trackerId === trackerId)
-        // Sort chronologically (oldest to newest)
         .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       
       const svgWidth = 480;
       const svgHeight = 180;
-      const padding = { top: 15, right: 20, bottom: 25, left: 35 };
+      const padding = { top: 15, right: 20, bottom: 25, left: 45 };
       
       const chartWidth = svgWidth - padding.left - padding.right;
       const chartHeight = svgHeight - padding.top - padding.bottom;
       
-      // Diagonal linear expected pace curve
+      // Diagonal ideal pace line
       const diagX1 = padding.left;
       const diagY1 = padding.top + chartHeight;
       const diagX2 = padding.left + chartWidth;
       const diagY2 = padding.top;
       
-      // Plot logs path
-      let pointsHTML = '';
       let pathHTML = '';
-      let lastX = null, lastY = null;
+      let pointsHTML = '';
+      let shadedAreasHTML = '';
       
-      // Select last 15 logs to prevent overcrowding
       const recentLogs = logs.slice(-15);
       
-      recentLogs.forEach((log, index) => {
-        // expectedPct maps to X axis, currentPct maps to Y axis
-        const xPct = log.expectedPct;
-        const yPct = log.currentPct;
-        
-        const x = padding.left + (xPct / 100) * chartWidth;
-        const y = padding.top + chartHeight - (yPct / 100) * chartHeight;
-        
-        pointsHTML += `<circle cx="${x}" cy="${y}" r="4" fill="var(--theme-primary)" stroke="#ffffff" stroke-width="1" />`;
-        pointsHTML += `<text x="${x}" y="${y - 6}" fill="var(--text-secondary)" font-size="8" text-anchor="middle" font-family="Share Tech Mono">${yPct.toFixed(0)}%</text>`;
-        
-        if (lastX !== null && lastY !== null) {
-          pathHTML += `<line x1="${lastX}" y1="${lastY}" x2="${x}" y2="${y}" stroke="var(--theme-primary)" stroke-width="2" />`;
-        }
-        lastX = x;
-        lastY = y;
-      });
+      if (recentLogs.length > 0 && recentLogs[0].expectedPct > 0) {
+        recentLogs.unshift({ expectedPct: 0, currentPct: 0 });
+      }
       
-      container.innerHTML = `
-        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="100%" style="overflow: visible;">
-          <!-- Grid Lines -->
-          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left + chartWidth}" y2="${padding.top}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
-          <line x1="${padding.left}" y1="${padding.top + chartHeight/2}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight/2}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
-          <line x1="${padding.left + chartWidth/2}" y1="${padding.top}" x2="${padding.left + chartWidth/2}" y2="${padding.top + chartHeight}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+      if (recentLogs.length > 0) {
+        let pathD = '';
+        let firstX = 0, lastX = 0;
+        recentLogs.forEach((log, index) => {
+          const xPct = log.expectedPct;
+          const yPct = log.currentPct;
+          const x = padding.left + (xPct / 100) * chartWidth;
+          const y = padding.top + chartHeight - (yPct / 100) * chartHeight;
           
-          <!-- Expected linear slope -->
-          <line x1="${diagX1}" y1="${diagY1}" x2="${diagX2}" y2="${diagY2}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1.5" stroke-dasharray="4,4" />
-          <text x="${padding.left + chartWidth - 10}" y="${padding.top + 22}" fill="var(--text-muted)" font-size="8.5" text-anchor="end" font-style="italic">Linear Expected Pace</text>
+          if (index === 0) {
+            pathD += `M ${x} ${y}`;
+            firstX = x;
+          } else {
+            const prevLog = recentLogs[index - 1];
+            const prevXPct = prevLog.expectedPct;
+            const prevYPct = prevLog.currentPct;
+            const prevX = padding.left + (prevXPct / 100) * chartWidth;
+            const prevY = padding.top + chartHeight - (prevYPct / 100) * chartHeight;
+            
+            pathD += ` L ${x} ${y}`;
+          }
+          lastX = x;
           
-          <!-- Axis Labels -->
-          <text x="${padding.left - 8}" y="${padding.top + 3}" fill="var(--text-muted)" font-size="9" text-anchor="end" font-family="Share Tech Mono">100%</text>
-          <text x="${padding.left - 8}" y="${padding.top + chartHeight/2 + 3}" fill="var(--text-muted)" font-size="9" text-anchor="end" font-family="Share Tech Mono">50%</text>
-          <text x="${padding.left - 8}" y="${padding.top + chartHeight + 3}" fill="var(--text-muted)" font-size="9" text-anchor="end" font-family="Share Tech Mono">0%</text>
+          const pointLabel = isCredits ? `${symbol}${((yPct / 100) * maxQuota).toFixed(2)}` : `${yPct.toFixed(2)}%`;
           
-          <text x="${padding.left}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8.5" text-anchor="middle">Cycle Start</text>
-          <text x="${padding.left + chartWidth/2}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8.5" text-anchor="middle">Mid-Week</text>
-          <text x="${padding.left + chartWidth}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8.5" text-anchor="middle">Reset</text>
-          
-          <!-- Axes Border -->
-          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" />
-          <line x1="${padding.left}" y1="${padding.top + chartHeight}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" />
-          
-          <!-- Actual paths & points -->
-          ${pathHTML}
-          ${pointsHTML}
-        </svg>
+          pointsHTML += `<circle cx="${x}" cy="${y}" r="4" fill="var(--theme-primary)" stroke="#ffffff" stroke-width="2" filter="url(#glow-${trackerId})" />`;
+          pointsHTML += `<text x="${x}" y="${y - 6}" fill="var(--text-secondary)" font-size="8" text-anchor="middle" font-family="Share Tech Mono">${pointLabel}</text>`;
+        });
+        
+        pathHTML = `<path d="${pathD}" fill="none" stroke="var(--theme-primary)" stroke-width="2" />`;
+        pathHTML += `
+          <defs>
+            <linearGradient id="area-green-${trackerId}" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="rgba(34, 197, 94, 0.4)" />
+              <stop offset="100%" stop-color="rgba(34, 197, 94, 0.05)" />
+            </linearGradient>
+            <linearGradient id="area-red-${trackerId}" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="rgba(239, 68, 68, 0.4)" />
+              <stop offset="100%" stop-color="rgba(239, 68, 68, 0.05)" />
+            </linearGradient>
+            <filter id="glow-${trackerId}">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+        `;
+        
+        // Background fills for Lead/Lag areas
+        if (recentLogs.length > 1) {
+          for (let i = 1; i < recentLogs.length; i++) {
+            const p1 = recentLogs[i - 1];
+            const p2 = recentLogs[i];
+            
+            const x1 = padding.left + (p1.expectedPct / 100) * chartWidth;
+            const y1 = padding.top + chartHeight - (p1.currentPct / 100) * chartHeight;
+            const idealY1 = padding.top + chartHeight - (p1.expectedPct / 100) * chartHeight;
+            
+            const x2 = padding.left + (p2.expectedPct / 100) * chartWidth;
+            const y2 = padding.top + chartHeight - (p2.currentPct / 100) * chartHeight;
+            const idealY2 = padding.top + chartHeight - (p2.expectedPct / 100) * chartHeight;
+            
+            const dev1 = p1.currentPct - p1.expectedPct;
+            const dev2 = p2.currentPct - p2.expectedPct;
+            
+            const pathSegment = `M ${x1} ${y1} L ${x2} ${y2} L ${x2} ${padding.top + chartHeight} L ${x1} ${padding.top + chartHeight} Z`;
+            
+            if (dev1 >= 0 && dev2 >= 0) {
+              shadedAreasHTML += `<path d="${pathSegment}" fill="url(#area-red-${trackerId})" stroke="none" />`;
+            } else if (dev1 <= 0 && dev2 <= 0) {
+              shadedAreasHTML += `<path d="${pathSegment}" fill="url(#area-green-${trackerId})" stroke="none" />`;
+            } else {
+              const avgDev = (dev1 + dev2) / 2;
+              const fillColor = avgDev >= 0 ? 'url(#area-red-${trackerId})' : 'url(#area-green-${trackerId})';
+              shadedAreasHTML += `<path d="${pathSegment}" fill="${fillColor}" stroke="none" />`;
+            }
+          }
+        }
+      } else {
+        return `
+          <div style="background: transparent; border-radius: 12px; padding: 1.25rem; border: 1px dashed rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
+            <h4 style="font-family: 'Outfit', sans-serif; margin-bottom: 0.5rem; color: var(--text-primary);">${tracker.name}</h4>
+            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">No logs recorded yet. Tap "Log Snapshot" on the card to show utilization curve.</p>
+          </div>
+        `;
+      }
+      
+      const label100 = isCredits ? `${symbol}${maxQuota.toFixed(0)}` : '100%';
+      const label50 = isCredits ? `${symbol}${(maxQuota/2).toFixed(0)}` : '50%';
+      const label0 = isCredits ? `${symbol}0` : '0%';
+
+      return `
+        <div style="background: transparent; border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.04);">
+          <h4 style="font-family: 'Outfit', sans-serif; margin-bottom: 0.75rem; color: var(--text-primary); text-align: center;">${tracker.name}</h4>
+          <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="100%" style="overflow: visible;">
+            <!-- Grid Lines -->
+            <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left + chartWidth}" y2="${padding.top}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+            <line x1="${padding.left}" y1="${padding.top + chartHeight/2}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight/2}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+            <line x1="${padding.left + chartWidth/2}" y1="${padding.top}" x2="${padding.left + chartWidth/2}" y2="${padding.top + chartHeight}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+            
+            <!-- Expected linear slope -->
+            <line x1="${diagX1}" y1="${diagY1}" x2="${diagX2}" y2="${diagY2}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" stroke-dasharray="4,4" />
+            
+            <!-- Axis Labels -->
+            <text x="${padding.left - 8}" y="${padding.top + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="Share Tech Mono">${label100}</text>
+            <text x="${padding.left - 8}" y="${padding.top + chartHeight/2 + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="Share Tech Mono">${label50}</text>
+            <text x="${padding.left - 8}" y="${padding.top + chartHeight + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="Share Tech Mono">${label0}</text>
+            
+            <text x="${padding.left}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8" text-anchor="middle">Start</text>
+            <text x="${padding.left + chartWidth/2}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8" text-anchor="middle">Mid-Week</text>
+            <text x="${padding.left + chartWidth}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8" text-anchor="middle">Reset</text>
+            
+            <!-- Axes Border -->
+            <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+            <line x1="${padding.left}" y1="${padding.top + chartHeight}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+            
+            <!-- Area Fills -->
+            ${shadedAreasHTML}
+            
+            <!-- Actual paths & points -->
+            ${pathHTML}
+            ${pointsHTML}
+          </svg>
+        </div>
       `;
+    }
+
+    // Render the SVG chart comparing entered logs against the ideal pace line
+    function renderPacingCurveChart() {
+      const container = document.getElementById('pacing-chart-container');
+      if (!container) return;
+      
+      if (state.trackers.length === 0) {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem; text-align: center; width: 100%; padding: 2.5rem 1rem;">No tracker configured. Add an AI Tracker above to start visualization.</div>`;
+        return;
+      }
+      
+      let html = '<div class="charts-grid">';
+      state.trackers.forEach(tracker => {
+        html += generateSinglePacingChartHTML(tracker);
+      });
+      html += '</div>';
+      container.innerHTML = html;
     }
 
     // DB: Data Management Functions
