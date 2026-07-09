@@ -2012,10 +2012,12 @@
       const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
       const maxQuota = tracker.maxQuota || 100.0;
 
+      const cycleData = calculateExpectedPace(tracker);
+      const lastReset = cycleData.lastReset;
+
       const logs = (state.history || [])
-        .filter(l => l.trackerId === trackerId)
+        .filter(l => l.trackerId === trackerId && new Date(l.timestamp).getTime() >= lastReset.getTime())
         .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      
       const svgWidth = 480;
       const svgHeight = 180;
       const padding = { top: 15, right: 20, bottom: 25, left: 45 };
