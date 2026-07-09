@@ -1254,9 +1254,9 @@
                 <span>Reset</span>
               </div>
               <div class="timeline-bar-bg">
+                <div class="timeline-current-fill" id="${tracker.id}-bar-fill"></div>
                 <div class="lag-zone" id="${tracker.id}-lag-zone"></div>
                 <div class="lead-zone" id="${tracker.id}-lead-zone"></div>
-                <div class="timeline-current-fill" id="${tracker.id}-bar-fill"></div>
                 <div class="timeline-marker" id="${tracker.id}-marker"></div>
               </div>
             </div>
@@ -1271,14 +1271,11 @@
             </div>
           </div>
 
-          <!-- Input Slider -->
+          <!-- Input Section -->
           <div class="input-section">
             <div class="input-label-container">
               <span class="input-label">Update Current Usage</span>
               <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="100" step="0.1" value="${tracker.currentPct}">
-            </div>
-            <div class="slider-container">
-              <input type="range" id="${tracker.id}-slider" min="0" max="100" step="0.5" value="${tracker.currentPct}">
             </div>
             
             <div class="quick-adjust-buttons">
@@ -1392,22 +1389,14 @@
     }
 
 
-    // Helper: Sync Slider and Direct Numeric text fields
+    // Helper: Initialize direct numeric text field listeners
     function initInputBinding(id) {
-      const slider = document.getElementById(`${id}-slider`);
       const numInput = document.getElementById(`${id}-num-input`);
-      
-      slider.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        numInput.value = val;
-        updateStatePct(id, val);
-      });
       
       numInput.addEventListener('input', (e) => {
         let val = parseFloat(e.target.value) || 0;
         if (val < 0) val = 0;
         if (val > 100) val = 100;
-        slider.value = val;
         updateStatePct(id, val);
       });
     }
@@ -1432,8 +1421,7 @@
       
       tracker.currentPct = parseFloat(val.toFixed(1));
       
-      // Update DOM nodes directly to prevent re-render focus disruption
-      document.getElementById(`${id}-slider`).value = tracker.currentPct;
+      // Update DOM node directly to prevent re-render focus disruption
       document.getElementById(`${id}-num-input`).value = tracker.currentPct;
       
       saveState();
