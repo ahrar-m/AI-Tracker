@@ -339,6 +339,7 @@
       top: 0;
       background: var(--theme-gradient);
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
     }
 
     /* Pacing markers */
@@ -371,16 +372,18 @@
       position: absolute;
       height: 100%;
       top: 0;
-      opacity: 0.35;
       transition: left 0.3s, width 0.3s;
+      z-index: 2;
     }
 
     .lead-zone {
       background-color: var(--color-lead-red);
+      opacity: 1;
     }
 
     .lag-zone {
       background-color: var(--color-lag-green);
+      opacity: 0.85;
     }
 
     /* Pacing Percentages Footer */
@@ -1048,6 +1051,21 @@
     <!-- Rendered dynamically via JavaScript -->
   </div>
 
+  <!-- Pacing Curve Visualization Chart -->
+  <div class="container" style="margin-top: 1.5rem;">
+    <div class="glass-card full-width history-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="history-title" style="margin-bottom: 0;">Pacing Curve Analysis</div>
+        <select id="pacing-chart-select" onchange="renderPacingCurveChart()" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem; font-family: inherit;">
+          <!-- Options populated dynamically -->
+        </select>
+      </div>
+      <div id="pacing-chart-container" style="width: 100%; min-height: 180px; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 1rem; border: 1px solid rgba(255,255,255,0.03);">
+        <!-- SVG rendered here -->
+      </div>
+    </div>
+  </div>
+
   <!-- Pacing History log -->
   <div class="container" style="margin-top: 1.5rem;">
     <div class="glass-card full-width history-section">
@@ -1152,6 +1170,8 @@
       checkAndArchiveFinishedCycles();
       renderDashboard();
       renderHistory();
+      populateChartSelect();
+      renderPacingCurveChart();
       
       // Update UI clock ticks every 1 second
       setInterval(tickClock, 1000);
@@ -1279,12 +1299,12 @@
             </div>
             
             <div class="quick-adjust-buttons">
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -10)">-10%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -5)">-5%</button>
               <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -1)">-1%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', 1)">+1%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', 5)">+5%</button>
-              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', 10)">+10%</button>
+              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -2)">-2%</button>
+              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -5)">-5%</button>
+              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -10)">-10%</button>
+              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -20)">-20%</button>
+              <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -50)">-50%</button>
             </div>
             
             <div class="action-btn-container">
@@ -1312,6 +1332,9 @@
         // Refresh specific tracker analytics immediately
         updateTrackerUI(tracker.id);
       });
+      
+      populateChartSelect();
+      renderPacingCurveChart();
     }
 
     // Toggle 4-Week History Chart Collapse
@@ -1717,6 +1740,7 @@
 
       saveState();
       renderHistory();
+      renderPacingCurveChart();
       showToast(`Snapshot logged for ${tracker.name}`);
     }
 
@@ -1732,7 +1756,7 @@
       let html = '';
       state.history.forEach(item => {
         const dateStr = new Date(item.timestamp).toLocaleString();
-        const paceColor = item.deviation > 2 ? 'var(--color-lead-red)' : item.deviation < -2 ? 'var(--color-lag-amber)' : 'var(--color-track-green)';
+        const paceColor = item.deviation > 2 ? 'var(--color-lead-red)' : item.deviation < -2 ? 'var(--color-lag-green)' : 'var(--color-track-green)';
         const paceLabel = item.deviation > 2 ? 'Lead' : item.deviation < -2 ? 'Lag' : 'On Track';
         const deviationText = item.deviation >= 0 ? `+${item.deviation.toFixed(1)}%` : `${item.deviation.toFixed(1)}%`;
 
@@ -1752,6 +1776,123 @@
         `;
       });
       listEl.innerHTML = html;
+    }
+
+    // Populate the dropdown menu for the pacing analysis chart
+    function populateChartSelect() {
+      const select = document.getElementById('pacing-chart-select');
+      if (!select) return;
+      
+      const savedVal = select.value;
+      select.innerHTML = '';
+      
+      state.trackers.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.innerText = t.name;
+        select.appendChild(opt);
+      });
+      
+      // Restore selected value if it still exists
+      if (savedVal && state.trackers.some(t => t.id === savedVal)) {
+        select.value = savedVal;
+      } else if (state.trackers.length > 0) {
+        select.value = state.trackers[0].id;
+      }
+    }
+
+    // Render the SVG chart comparing entered logs against the ideal pace line
+    function renderPacingCurveChart() {
+      const container = document.getElementById('pacing-chart-container');
+      const select = document.getElementById('pacing-chart-select');
+      if (!container || !select) return;
+      
+      const trackerId = select.value;
+      if (!trackerId) {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">No tracker configured. Add an AI Tracker above to start visualization.</div>`;
+        return;
+      }
+      
+      const tracker = state.trackers.find(t => t.id === trackerId);
+      if (!tracker) {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem;">Tracker not found.</div>`;
+        return;
+      }
+      
+      // Filter log snapshots for this tracker
+      const logs = (state.history || [])
+        .filter(l => l.trackerId === trackerId)
+        // Sort chronologically (oldest to newest)
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      const svgWidth = 480;
+      const svgHeight = 180;
+      const padding = { top: 15, right: 20, bottom: 25, left: 35 };
+      
+      const chartWidth = svgWidth - padding.left - padding.right;
+      const chartHeight = svgHeight - padding.top - padding.bottom;
+      
+      // Diagonal linear expected pace curve
+      const diagX1 = padding.left;
+      const diagY1 = padding.top + chartHeight;
+      const diagX2 = padding.left + chartWidth;
+      const diagY2 = padding.top;
+      
+      // Plot logs path
+      let pointsHTML = '';
+      let pathHTML = '';
+      let lastX = null, lastY = null;
+      
+      // Select last 15 logs to prevent overcrowding
+      const recentLogs = logs.slice(-15);
+      
+      recentLogs.forEach((log, index) => {
+        // expectedPct maps to X axis, currentPct maps to Y axis
+        const xPct = log.expectedPct;
+        const yPct = log.currentPct;
+        
+        const x = padding.left + (xPct / 100) * chartWidth;
+        const y = padding.top + chartHeight - (yPct / 100) * chartHeight;
+        
+        pointsHTML += `<circle cx="${x}" cy="${y}" r="4" fill="var(--theme-primary)" stroke="#ffffff" stroke-width="1" />`;
+        pointsHTML += `<text x="${x}" y="${y - 6}" fill="var(--text-secondary)" font-size="8" text-anchor="middle" font-family="Share Tech Mono">${yPct.toFixed(0)}%</text>`;
+        
+        if (lastX !== null && lastY !== null) {
+          pathHTML += `<line x1="${lastX}" y1="${lastY}" x2="${x}" y2="${y}" stroke="var(--theme-primary)" stroke-width="2" />`;
+        }
+        lastX = x;
+        lastY = y;
+      });
+      
+      container.innerHTML = `
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="100%" style="overflow: visible;">
+          <!-- Grid Lines -->
+          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left + chartWidth}" y2="${padding.top}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+          <line x1="${padding.left}" y1="${padding.top + chartHeight/2}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight/2}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+          <line x1="${padding.left + chartWidth/2}" y1="${padding.top}" x2="${padding.left + chartWidth/2}" y2="${padding.top + chartHeight}" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+          
+          <!-- Expected linear slope -->
+          <line x1="${diagX1}" y1="${diagY1}" x2="${diagX2}" y2="${diagY2}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1.5" stroke-dasharray="4,4" />
+          <text x="${padding.left + chartWidth - 10}" y="${padding.top + 22}" fill="var(--text-muted)" font-size="8.5" text-anchor="end" font-style="italic">Linear Expected Pace</text>
+          
+          <!-- Axis Labels -->
+          <text x="${padding.left - 8}" y="${padding.top + 3}" fill="var(--text-muted)" font-size="9" text-anchor="end" font-family="Share Tech Mono">100%</text>
+          <text x="${padding.left - 8}" y="${padding.top + chartHeight/2 + 3}" fill="var(--text-muted)" font-size="9" text-anchor="end" font-family="Share Tech Mono">50%</text>
+          <text x="${padding.left - 8}" y="${padding.top + chartHeight + 3}" fill="var(--text-muted)" font-size="9" text-anchor="end" font-family="Share Tech Mono">0%</text>
+          
+          <text x="${padding.left}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8.5" text-anchor="middle">Cycle Start</text>
+          <text x="${padding.left + chartWidth/2}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8.5" text-anchor="middle">Mid-Week</text>
+          <text x="${padding.left + chartWidth}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8.5" text-anchor="middle">Reset</text>
+          
+          <!-- Axes Border -->
+          <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" />
+          <line x1="${padding.left}" y1="${padding.top + chartHeight}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" />
+          
+          <!-- Actual paths & points -->
+          ${pathHTML}
+          ${pointsHTML}
+        </svg>
+      `;
     }
 
     // DB: Data Management Functions
