@@ -461,54 +461,22 @@
     }
 
     .pct-number-input {
-      width: 76px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 110px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 8px;
-      padding: 0.4rem;
+      padding: 0.6rem 0.8rem;
       color: var(--text-primary);
       font-family: 'Share Tech Mono', monospace;
-      font-size: 0.95rem;
+      font-size: 1.15rem;
       text-align: center;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, background 0.2s;
     }
 
     .pct-number-input:focus {
-      border-color: rgba(255, 255, 255, 0.3);
-    }
-
-    /* Adjust button grid: 3 columns on mobile, extremely clean */
-    .quick-adjust-buttons {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 0.35rem;
-      margin-bottom: 1rem;
-    }
-
-    @media (max-width: 480px) {
-      .quick-adjust-buttons {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .btn-adjust {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      color: var(--text-secondary);
-      border-radius: 8px;
-      padding: 0.5rem 0.2rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-align: center;
-    }
-
-    .btn-adjust:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-primary);
-      border-color: rgba(255, 255, 255, 0.12);
+      border-color: var(--theme-primary);
+      background: rgba(0, 0, 0, 0.6);
     }
 
     .action-btn-container {
@@ -1363,15 +1331,7 @@
                   <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="${maxVal}" step="${stepVal}" value="${displayVal}">
                 </div>
                 
-                <div class="quick-adjust-buttons">
-                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -1)">-1%</button>
-                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -2)">-2%</button>
-                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -5)">-5%</button>
-                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -10)">-10%</button>
-                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -20)">-20%</button>
-                  <button class="btn-adjust" onclick="adjustPct('${tracker.id}', -50)">-50%</button>
-                </div>
-                
+
                 <div class="action-btn-container">
                   <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="width: 100%;">Log Snapshot</button>
                 </div>
