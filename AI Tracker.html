@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Quota Utilization Tracker</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #030712 100%);
+      --card-bg: rgba(17, 24, 39, 0.6);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-blur: blur(16px);
+      
+      --color-lead-red: #ef4444;    /* Lead zone red */
+      --color-lag-green: #22c55e;   /* Lag zone green */
+      --color-track-green: #10b981;
+      --color-lag-amber: #fbbf24;   /* Lag zone amber */
+      
+      --theme-primary: #6366f1;     /* Default unified theme accent */
+      --theme-secondary: #4f46e5;
+      --theme-glow: rgba(99, 102, 241, 0.15);
+      --theme-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      --theme-icon-bg: rgba(99, 102, 241, 0.1);
+      
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background glows */
+    .glow-container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+    }
+
+    .glow-orb-1 {
+      top: 10%;
+      left: 15%;
+      width: 250px;
+      height: 250px;
+      background: #06b6d4;
+    }
+
+    .glow-orb-2 {
+      bottom: 20%;
+      right: 15%;
+      width: 300px;
+      height: 300px;
+      background: #a855f7;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 2px 10px rgba(255, 255, 255, 0.15);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.025em;
+    }
+
+    header p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .container {
+        grid-template-columns: 1fr 1fr;
+      }
+      .full-width {
+        grid-column: span 2;
+      }
+    }
+
+    /* Glass Card Styling */
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: var(--card-blur);
+      -webkit-backdrop-filter: var(--card-blur);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    @media (min-width: 768px) {
+      .glass-card {
+        padding: 2rem;
+      }
+    }
+
+    .glass-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: var(--theme-gradient);
+    }
+
+    /* Card Header */
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-card-action {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .btn-card-action:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Card Meta Info Row */
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    /* Countdown Styling */
+    .countdown-box {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.4rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-grow: 1;
+      justify-content: center;
+    }
+
+    @media (min-width: 640px) {
+      .countdown-box {
+        flex-grow: 0;
+      }
+    }
+
+    .countdown-box span.time {
+      color: var(--text-primary);
+    }
+
+    /* Main Pace Metric */
+    .metric-section {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .pacing-status {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-lead { color: var(--color-lead-red); }
+    .status-lead .status-dot { background-color: var(--color-lead-red); box-shadow: 0 0 8px var(--color-lead-red); }
+    .status-lag { color: var(--color-lag-amber); }
+    .status-lag .status-dot { background-color: var(--color-lag-amber); box-shadow: 0 0 8px var(--color-lag-amber); }
+    .status-track { color: var(--color-track-green); }
+    .status-track .status-dot { background-color: var(--color-track-green); box-shadow: 0 0 8px var(--color-track-green); }
+
+    .deviation-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.75rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .deviation-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      max-width: 280px;
+      margin: 0 auto;
+      line-height: 1.4;
+    }
+
+    /* Pacing Timeline Visualizer */
+    .timeline-visualizer {
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .timeline-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .timeline-bar-bg {
+      height: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      position: relative;
+      overflow: visible;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .timeline-current-fill {
+      height: 100%;
+      border-radius: 5px 0 0 5px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      background: var(--theme-gradient);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
+    }
+
+    /* Pacing markers */
+    .timeline-marker {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      width: 4px;
+      border-radius: 2px;
+      background: #ffffff;
+      box-shadow: 0 0 8px #ffffff;
+      z-index: 10;
+      transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .timeline-marker::after {
+      content: 'Expected';
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.6rem;
+      color: #ffffff;
+      white-space: nowrap;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .lead-zone, .lag-zone {
+      position: absolute;
+      height: 100%;
+      top: 0;
+      transition: left 0.3s, width 0.3s;
+      z-index: 2;
+    }
+
+    .lead-zone {
+      background-color: var(--color-lead-red);
+      opacity: 1;
+    }
+
+    .lag-zone {
+      background-color: var(--color-lag-green);
+      opacity: 0.85;
+    }
+
+    /* Pacing Percentages Footer */
+    .pct-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .pct-label {
+      color: var(--text-secondary);
+    }
+
+    .pct-val {
+      font-family: 'Share Tech Mono', monospace;
+      font-weight: bold;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Input & Adjust Section */
+    .input-section {
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .input-label-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .input-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    input[type="range"] {
+      flex-grow: 1;
+      height: 8px; /* Slightly thicker for mobile touch comfort */
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px; /* Enlarge for mobile ease of access */
+      height: 22px;
+      border-radius: 50%;
+      cursor: pointer;
+      background: var(--theme-primary);
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+
+    .pct-number-input {
+      width: 110px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      color: var(--text-primary);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1.15rem;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .pct-number-input:focus {
+      border-color: var(--theme-primary);
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .action-btn-container {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 0.75rem 0.5rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      border: 1px solid transparent;
+      height: 44px; /* Target click height */
+    }
+
+    .btn-primary {
+      background: var(--theme-gradient);
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 15px var(--theme-glow);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-primary);
+    }
+
+    /* Modal Overlay System */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(3, 7, 18, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 1.75rem;
+      width: 92%;
+      max-width: 480px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.open .modal-content {
+      transform: scale(1);
+    }
+
+    /* Mobile bottom-drawer transition */
+    @media (max-width: 640px) {
+      .modal-overlay {
+        align-items: flex-end;
+      }
+      .modal-content {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 24px 24px 0 0;
+        transform: translateY(100%);
+        border-bottom: none;
+        padding: 2rem 1.5rem;
+      }
+      .modal-overlay.open .modal-content {
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-header h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .btn-close:hover {
+      color: var(--text-primary);
+    }
+
+    /* Settings section styling */
+    .dashboard-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.5rem 0;
+      width: 100%;
+    }
+
+    @media (min-width: 640px) {
+      .dashboard-actions {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+
+    .btn-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+      border-radius: 12px;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      width: 100%;
+      max-width: 320px;
+      height: 46px;
+    }
+
+    .btn-trigger:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-add-fab {
+      background: linear-gradient(135deg, #06b6d4 0%, #a855f7 100%);
+      color: white;
+      font-weight: 600;
+      border: none;
+    }
+    
+    .btn-add-fab:hover {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+    }
+
+    .settings-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.4s ease;
+      padding: 0;
+    }
+
+    .settings-panel.open {
+      max-height: 800px;
+      padding: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .settings-panel.open {
+        padding: 2rem;
+      }
+    }
+
+    .settings-group {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .settings-group-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 0.5rem;
+    }
+
+    .setting-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .setting-row label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .setting-row select, .setting-row input[type="text"], .setting-row input[type="time"] {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 0.75rem 0.6rem;
+      color: var(--text-primary);
+      outline: none;
+      font-family: inherit;
+      font-size: 16px; /* Avoid iOS zooming */
+    }
+
+    .setting-row select:focus, .setting-row input:focus {
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .toggle-row {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Switch Styling */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .4s;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #06b6d4;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Color Swatch Radios */
+    .color-swatch-container {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      position: relative;
+      border: 2px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.05);
+    }
+
+    .color-swatch.selected {
+      border-color: #ffffff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Empty state info card */
+    .empty-state {
+      grid-column: span 2;
+      text-align: center;
+      padding: 3rem 1.5rem;
+      background: var(--card-bg);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+    }
+
+    .empty-state-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    /* Pacing curve charts grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      width: 100%;
+    }
+    @media (min-width: 768px) {
+      .charts-grid {
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      }
+    }
+
+    /* History / Logs Section */
+    .history-section {
+      margin-top: 1rem;
+    }
+
+    .history-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 250px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    /* Custom Scrollbar */
+    .history-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .history-list::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+    }
+    .history-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    .history-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .history-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      overflow: hidden;
+    }
+
+    .history-time {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .history-label {
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-values {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .history-usage {
+      font-weight: 600;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .history-pacing {
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* History Collapsible Tab */
+    .history-chart-collapsible {
+      margin-top: 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 0.75rem;
+    }
+
+    .btn-history-toggle {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0.25rem 0;
+      transition: color 0.2s;
+    }
+
+    .btn-history-toggle:hover {
+      color: var(--text-primary);
+    }
+
+    .history-chart-wrapper {
+      transition: all 0.3s ease;
+    }
+
+    footer {
+      margin-top: 3rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+
+    /* Toast system */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      left: 20px; /* Stretch for mobile */
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    @media (min-width: 640px) {
+      .toast-container {
+        left: auto;
+        width: 320px;
+      }
+    }
+
+    .toast {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      padding: 0.75rem 1.25rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-success {
+      border-left: 4px solid var(--color-track-green);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow Effects -->
+  <div class="glow-container">
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+  </div>
+
+  <header>
+    <h1>AI Quota Utilization Tracker</h1>
+    <p>Optimize your weekly/monthly utilization limits for any AI system</p>
+  </header>
+
+  <!-- Control Buttons for Settings & Add AI -->
+  <div class="dashboard-actions">
+    <button class="btn-trigger btn-add-fab" onclick="openAddEditModal()">
+      <span>➕</span> <span>Add AI Tracker</span>
+    </button>
+    <button class="btn-trigger" id="settings-toggle-btn" onclick="toggleSettings()">
+      <span id="settings-btn-icon">⚙️</span> <span id="settings-btn-text">Data Options</span>
+    </button>
+  </div>
+
+  <!-- Collapsible Settings Panel (JSON Backups / Global Resets) -->
+  <div class="glass-card full-width settings-panel" id="settings-panel" style="margin-bottom: 1.5rem;">
+    <div class="settings-group">
+      <div class="settings-group-title">App Data Options</div>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn-action btn-secondary" onclick="exportData()" style="flex: 1; min-width: 130px;">Export Backup</button>
+        <button class="btn-action btn-secondary" onclick="importData()" style="flex: 1; min-width: 130px;">Import Backup</button>
+        <button class="btn-action btn-secondary" onclick="resetToFactoryDefaults()" style="flex: 1; min-width: 130px; border-color: rgba(244, 63, 94, 0.4); color: var(--color-lead-red);">Clear & Reset All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trackers Grid Container -->
+  <div class="container" id="trackers-grid">
+    <!-- Rendered dynamically via JavaScript -->
+  </div>
+
+  <!-- Pacing Curve Visualization Chart -->
+  <div class="container" style="margin-top: 1.5rem;">
+    <div class="glass-card full-width history-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="history-title" style="margin-bottom: 0;">Utilization Curve Analysis</div>
+      </div>
+      <div id="pacing-chart-container" style="width: 100%; min-height: 180px; background: transparent; padding: 0.5rem 0; border: none;">
+        <!-- SVG rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Pacing History log -->
+  <div class="container" style="margin-top: 1.5rem;">
+    <div class="glass-card full-width history-section">
+      <div class="history-title">Utilization Logs & Snapshots</div>
+      <div class="history-list" id="history-list">
+        <!-- Rendered history logs -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Tracker Modal overlay -->
+  <div class="modal-overlay" id="add-edit-modal" onclick="handleOverlayClick(event)">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Add AI Tracker</h2>
+        <button class="btn-close" onclick="closeAddEditModal()">&times;</button>
+      </div>
+      <form id="tracker-form" onsubmit="saveTracker(event)">
+        <input type="hidden" id="edit-tracker-id">
+        
+        <div class="setting-row">
+          <label for="modal-name">AI Name</label>
+          <input type="text" id="modal-name" required placeholder="e.g., Claude Pro">
+        </div>
+        
+        <div class="setting-row">
+          <label for="modal-tracking-direction">Tracking Direction</label>
+          <select id="modal-tracking-direction">
+            <option value="up">Count Up (Starts at 0, usage increases)</option>
+            <option value="down">Count Down (Starts at Max, usage decreases)</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label for="modal-quota-mode">Tracking Mode</label>
+          <select id="modal-quota-mode" onchange="toggleModalQuotaFields()">
+            <option value="percentage">Percentage (0 - 100%)</option>
+            <option value="credits">Credits Mode (e.g. $20.00)</option>
+          </select>
+        </div>
+
+        <div class="setting-row" id="modal-max-quota-row" style="display: none;">
+          <label for="modal-max-quota">Max Credits Limit</label>
+          <input type="number" id="modal-max-quota" step="0.01" min="0.01" value="20.00">
+        </div>
+
+        <div class="setting-row" id="modal-currency-row" style="display: none;">
+          <label for="modal-currency">Currency Symbol</label>
+          <input type="text" id="modal-currency" value="$" placeholder="e.g. $, €">
+        </div>
+
+        <div class="setting-row">
+          <label for="modal-reset-freq">Reset Frequency</label>
+          <select id="modal-reset-freq" onchange="toggleModalFreqFields()">
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        <div class="setting-row" id="modal-reset-day-row">
+          <label for="modal-reset-day">Reset Day of Week</label>
+          <select id="modal-reset-day">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+
+        <div class="setting-row" id="modal-reset-date-row" style="display: none;">
+          <label for="modal-reset-date">Reset Date of Month</label>
+          <input type="number" id="modal-reset-date" min="1" max="31" value="1">
+        </div>
+
+        <div class="setting-row">
+          <label for="modal-reset-time">Reset Time (24-hour)</label>
+          <input type="time" id="modal-reset-time" required value="00:00">
+        </div>
+
+        <div class="setting-row toggle-row">
+          <label for="modal-utc">Use UTC Timezone</label>
+          <label class="switch">
+            <input type="checkbox" id="modal-utc">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" class="btn-action btn-secondary" onclick="closeAddEditModal()">Cancel</button>
+          <button type="submit" class="btn-action btn-primary" id="modal-submit-btn" style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);">Add Tracker</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <footer>
+    <p>AI Quota Utilization Tracker &bull; Standalone HTML Application<br>Optimized for Mobile & Desktop &bull; Data stored in browser storage</p>
+  </footer>
+
+  <script>
+    // System Defaults (Starts empty)
+    const DEFAULTS = {
+      trackers: [],
+      history: [],
+      historyCycles: []
+    };
+
+    // Load Database state from localStorage
+    let state;
+    try {
+      state = JSON.parse(localStorage.getItem('ai_quota_pacing_state'));
+      // Migrate structure if it was from the previous non-generic state
+      if (!state || !state.trackers) {
+        state = JSON.parse(JSON.stringify(DEFAULTS));
+        localStorage.setItem('ai_quota_pacing_state', JSON.stringify(state));
+      } else {
+        // One-time migration: filter out old default preloaded trackers
+        const hasDefaults = state.trackers.some(t => t.id === 'gemini-default' || t.id === 'antigravity-default');
+        if (hasDefaults) {
+          state.trackers = state.trackers.filter(t => t.id !== 'gemini-default' && t.id !== 'antigravity-default');
+          localStorage.setItem('ai_quota_pacing_state', JSON.stringify(state));
+        }
+        if (!state.historyCycles) {
+          state.historyCycles = [];
+          localStorage.setItem('ai_quota_pacing_state', JSON.stringify(state));
+        }
+      }
+    } catch(e) {
+      state = JSON.parse(JSON.stringify(DEFAULTS));
+    }
+
+    // App Initialization on DOM Load
+    document.addEventListener("DOMContentLoaded", () => {
+      checkAndArchiveFinishedCycles();
+      renderDashboard();
+      renderHistory();
+      populateChartSelect();
+      renderPacingCurveChart();
+      
+      // Update UI clock ticks every 1 second
+      setInterval(tickClock, 1000);
+    });
+
+    // Check if resets occurred and archive completed cycles automatically
+    function checkAndArchiveFinishedCycles() {
+      let stateChanged = false;
+      
+      state.trackers.forEach(tracker => {
+        const { lastReset } = calculateExpectedPace(tracker);
+        const savedLastResetStr = tracker.lastResetTime;
+        
+        if (!savedLastResetStr) {
+          // Initialize baseline
+          tracker.lastResetTime = lastReset.toISOString();
+          stateChanged = true;
+        } else {
+          const savedLastReset = new Date(savedLastResetStr);
+          // If the actual last reset is newer than our saved last reset by at least 1 minute
+          if (lastReset.getTime() - savedLastReset.getTime() > 60 * 1000) {
+            if (!state.historyCycles) state.historyCycles = [];
+            
+            state.historyCycles.push({
+              trackerId: tracker.id,
+              cycleEnd: lastReset.toISOString(), // date of the reset that marked cycle end
+              finalPct: tracker.currentPct
+            });
+            
+            // Reset to 0
+            tracker.currentPct = tracker.trackingDirection === 'down' ? 100.0 : 0.0;
+            tracker.lastResetTime = lastReset.toISOString();
+            stateChanged = true;
+            
+            showToast(`New cycle started for ${tracker.name}!`);
+          }
+        }
+      });
+      
+      if (stateChanged) {
+        saveState();
+      }
+    }
+
+    // Format utility for displaying usage values
+    function formatUsageValue(tracker, pct) {
+      const mode = tracker ? (tracker.quotaMode || 'percentage') : 'percentage';
+      if (mode === 'credits') {
+        const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+        const maxVal = tracker.maxQuota || 100.0;
+        const val = (pct / 100) * maxVal;
+        return `${symbol}${val.toFixed(2)} (${pct.toFixed(2)}%)`;
+      }
+      return `${pct.toFixed(2)}%`;
+    }
+
+    // Dynamic Dashboard Renderer
+    function renderDashboard() {
+      const grid = document.getElementById('trackers-grid');
+      
+      if (state.trackers.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-title">No AI Trackers Configured</div>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Get started by clicking the "Add AI Tracker" button above.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = '';
+      state.trackers.forEach(tracker => {
+        const firstLetter = tracker.name.trim().charAt(0).toUpperCase();
+        const isCredits = tracker.quotaMode === 'credits';
+        const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+        const displayVal = isCredits ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2) : tracker.currentPct.toFixed(2);
+        const maxVal = isCredits ? tracker.maxQuota : 100;
+        const stepVal = isCredits ? 0.01 : 0.1;
+        const inputLabel = isCredits ? `Update Current Usage (${symbol})` : 'Update Current Usage (%)';
+
+        const card = document.createElement('div');
+        card.className = 'glass-card';
+        card.id = `card-${tracker.id}`;
+        
+        card.innerHTML = `
+          <div>
+            <div class="card-header">
+              <div class="card-title">
+                <div class="card-icon" style="background: var(--theme-icon-bg); color: var(--theme-primary); box-shadow: 0 0 10px var(--theme-glow);">${firstLetter}</div>
+                <span title="${tracker.name}">${tracker.name}</span>
+              </div>
+              <div class="card-actions">
+                <button class="btn-card-action" onclick="openAddEditModal('${tracker.id}')" title="Edit Schedule">✏️</button>
+                <button class="btn-card-action" onclick="deleteTracker('${tracker.id}')" style="color: var(--color-lead-red);" title="Remove AI">🗑️</button>
+              </div>
+            </div>
+            
+            <div class="card-meta">
+              <div class="countdown-box" id="${tracker.id}-countdown">
+                <span>Reset in:</span>
+                <span class="time" id="${tracker.id}-reset-time">--d --h --m</span>
+              </div>
+            </div>
+ 
+            <div class="card-tabs" style="display: flex; gap: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 1rem; margin-top: 0.5rem;">
+              <button class="tab-btn active" onclick="switchCardTab('${tracker.id}', 'current')" id="${tracker.id}-btn-current" style="background: none; border: none; border-bottom: 2px solid var(--theme-primary); color: var(--text-primary); padding: 0.5rem 0; cursor: pointer; font-size: 0.9rem; font-weight: 600; flex: 1;">Current</button>
+              <button class="tab-btn" onclick="switchCardTab('${tracker.id}', 'history')" id="${tracker.id}-btn-history" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); padding: 0.5rem 0; cursor: pointer; font-size: 0.9rem; font-weight: 600; flex: 1;">History</button>
+            </div>
+
+            <div id="${tracker.id}-content-current">
+              <div class="metric-section">
+                <div class="pacing-status" id="${tracker.id}-status-label">
+                  <span class="status-dot"></span>
+                  <span>Calculating...</span>
+                </div>
+                <div class="deviation-value" id="${tracker.id}-deviation">±0.0%</div>
+                <div class="deviation-desc" id="${tracker.id}-desc">Utilization analytics loading...</div>
+              </div>
+  
+              <!-- Visual timeline progress graph -->
+              <div class="timeline-visualizer">
+                <div class="timeline-labels">
+                  <span>Start</span>
+                  <span>Reset</span>
+                </div>
+                <div class="timeline-bar-bg">
+                  <div class="timeline-current-fill" id="${tracker.id}-bar-fill"></div>
+                  <div class="lag-zone" id="${tracker.id}-lag-zone"></div>
+                  <div class="lead-zone" id="${tracker.id}-lead-zone"></div>
+                  <div class="timeline-marker" id="${tracker.id}-marker"></div>
+                </div>
+              </div>
+  
+              <div class="pct-row">
+                <span class="pct-label">Expected Utilization Target:</span>
+                <span class="pct-val" id="${tracker.id}-expected-pct">0.0%</span>
+              </div>
+              <div class="pct-row">
+                <span class="pct-label">Your Current Usage:</span>
+                <span class="pct-val" id="${tracker.id}-current-pct">0.0%</span>
+              </div>
+              
+              <!-- Input Section -->
+              <div class="input-section">
+                <div class="input-label-container">
+                  <span class="input-label">${inputLabel}</span>
+                  <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="${maxVal}" step="${stepVal}" value="${displayVal}">
+                </div>
+                
+
+                <div class="action-btn-container">
+                  <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="width: 100%;">Log Snapshot</button>
+                </div>
+              </div>
+            </div>
+            
+            <div id="${tracker.id}-content-history" style="display: none; padding-top: 0.5rem; text-align: center;">
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Past 4 Cycles History</p>
+              ${generateHistoryChartSVG(tracker.id)}
+            </div>
+          </div>
+        `;
+        
+        grid.appendChild(card);
+        
+        // Dynamically bind Slider and Input Box listeners together
+        initInputBinding(tracker.id);
+        
+        // Refresh specific tracker analytics immediately
+        updateTrackerUI(tracker.id);
+      });
+      
+      populateChartSelect();
+      renderPacingCurveChart();
+    }
+
+    // Toggle 4-Week History Chart Collapse
+    
+    function switchCardTab(id, tab) {
+      const btnCurrent = document.getElementById(`${id}-btn-current`);
+      const btnHistory = document.getElementById(`${id}-btn-history`);
+      const contentCurrent = document.getElementById(`${id}-content-current`);
+      const contentHistory = document.getElementById(`${id}-content-history`);
+      
+      if (tab === 'current') {
+        btnCurrent.style.borderBottomColor = 'var(--theme-primary)';
+        btnCurrent.style.color = 'var(--text-primary)';
+        btnHistory.style.borderBottomColor = 'transparent';
+        btnHistory.style.color = 'var(--text-secondary)';
+        contentCurrent.style.display = 'block';
+        contentHistory.style.display = 'none';
+      } else {
+        btnHistory.style.borderBottomColor = 'var(--theme-primary)';
+        btnHistory.style.color = 'var(--text-primary)';
+        btnCurrent.style.borderBottomColor = 'transparent';
+        btnCurrent.style.color = 'var(--text-secondary)';
+        contentHistory.style.display = 'block';
+        contentCurrent.style.display = 'none';
+      }
+    }
+
+    function toggleCardHistory(id) {
+      const wrapper = document.getElementById(`${id}-history-wrapper`);
+      const chevron = document.getElementById(`${id}-history-chevron`);
+      if (wrapper.style.display === 'none') {
+        wrapper.style.display = 'block';
+        chevron.innerText = '▲';
+      } else {
+        wrapper.style.display = 'none';
+        chevron.innerText = '▼';
+      }
+    }
+
+    // Generate custom SVG bar chart showing the last 4 weekly cycles
+    function generateHistoryChartSVG(trackerId) {
+      const tracker = state.trackers.find(t => t.id === trackerId);
+      const isCredits = tracker && tracker.quotaMode === 'credits';
+      const symbol = tracker ? (tracker.currencySymbol || '$') : '$';
+      const maxQuota = tracker ? (tracker.maxQuota || 100) : 100;
+
+      const trackerHistory = (state.historyCycles || [])
+        .filter(h => h.trackerId === trackerId)
+        .sort((a, b) => new Date(a.cycleEnd) - new Date(b.cycleEnd));
+      
+      const last4 = trackerHistory.slice(-4);
+      const paddedHistory = [];
+      for (let i = 0; i < 4 - last4.length; i++) {
+        paddedHistory.push({ placeholder: true, finalPct: 0 });
+      }
+      paddedHistory.push(...last4);
+      
+      const svgHeight = 85;
+      const svgWidth = 260;
+      const barWidth = 32;
+      const barSpacing = 28;
+      const startX = 24;
+      
+      let barsHTML = '';
+      let labelsHTML = '';
+      
+      paddedHistory.forEach((item, index) => {
+        const x = startX + index * (barWidth + barSpacing);
+        const pct = item.finalPct;
+        const barHeight = item.placeholder ? 4 : Math.max(4, (pct / 100) * 60);
+        const y = svgHeight - 20 - barHeight;
+        
+        const label = `Wk -${3 - index}`;
+        const barColor = item.placeholder ? 'rgba(255, 255, 255, 0.08)' : 'var(--theme-primary)';
+        const rx = 4;
+        
+        if (item.placeholder) {
+          barsHTML += `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="${barColor}" />`;
+        } else {
+          const displayText = isCredits ? `${symbol}${((pct / 100) * maxQuota).toFixed(2)}` : `${pct.toFixed(2)}%`;
+          barsHTML += `
+            <defs>
+              <linearGradient id="bar-grad-${trackerId}-${index}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#3b82f6" />
+              </linearGradient>
+              <filter id="glow-bar-${trackerId}">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="${rx}" fill="url(#bar-grad-${trackerId}-${index})" stroke="none" filter="url(#glow-bar-${trackerId})" />
+            <text x="${x + barWidth/2}" y="${y - 4}" fill="var(--text-secondary)" font-size="9" text-anchor="middle" font-family="Share Tech Mono">${displayText}</text>
+          `;
+        }
+        
+        labelsHTML += `
+          <text x="${x + barWidth/2}" y="${svgHeight - 4}" fill="var(--text-muted)" font-size="10" text-anchor="middle" font-family="Inter">${label}</text>
+        `;
+      });
+      
+      return `
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="${svgHeight}" style="overflow: visible;">
+          ${barsHTML}
+          ${labelsHTML}
+          <line x1="10" y1="${svgHeight - 20}" x2="${svgWidth - 10}" y2="${svgHeight - 20}" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+        </svg>
+      `;
+    }
+
+
+    // Helper: Initialize direct numeric text field listeners
+    function initInputBinding(id) {
+      const numInput = document.getElementById(`${id}-num-input`);
+      
+      numInput.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value) || 0;
+        if (val < 0) val = 0;
+        
+        const tracker = state.trackers.find(t => t.id === id);
+        if (tracker) {
+          const maxVal = tracker.quotaMode === 'credits' ? tracker.maxQuota : 100;
+          if (val > maxVal) val = maxVal;
+          let pct = tracker.quotaMode === 'credits' ? (val / tracker.maxQuota) * 100 : val;
+          updateStatePct(id, pct);
+        }
+      });
+    }
+
+    function updateStatePct(id, val) {
+      const tracker = state.trackers.find(t => t.id === id);
+      if (tracker) {
+        tracker.currentPct = val;
+        saveState();
+        updateTrackerUI(id);
+      }
+    }
+
+    // Button trigger: increments/decrements tracker percentage
+    function adjustPct(id, delta) {
+      const tracker = state.trackers.find(t => t.id === id);
+      if (!tracker) return;
+
+      let val = tracker.currentPct + delta;
+      if (val < 0) val = 0;
+      if (val > 100) val = 100;
+      
+      tracker.currentPct = parseFloat(val.toFixed(2));
+      
+      // Update DOM node directly to prevent re-render focus disruption
+      const numInput = document.getElementById(`${id}-num-input`);
+      if (numInput) {
+        const isCredits = tracker.quotaMode === 'credits';
+        numInput.value = isCredits ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2) : tracker.currentPct.toFixed(2);
+      }
+      
+      saveState();
+      updateTrackerUI(id);
+      showToast(`Adjusted ${tracker.name} usage by ${delta > 0 ? '+' : ''}${delta}%`);
+    }
+
+    // Calculation: expected pacing, reset intervals, and countdown values
+    function calculateExpectedPace(tracker) {
+      const now = new Date();
+      const resetFreq = tracker.resetFreq || 'weekly';
+      const resetDay = tracker.resetDay;
+      const resetDate = tracker.resetDate || 1;
+      const resetTimeStr = tracker.resetTime;
+      const useUtc = tracker.useUtc;
+
+      const [hours, minutes] = resetTimeStr.split(':').map(Number);
+      let lastReset, nextReset;
+
+      if (resetFreq === 'monthly') {
+        let currentMonthReset = new Date(now);
+        if (useUtc) {
+          currentMonthReset.setUTCDate(resetDate);
+          currentMonthReset.setUTCHours(hours, minutes, 0, 0);
+          
+          if (now.getTime() >= currentMonthReset.getTime()) {
+            lastReset = currentMonthReset;
+            nextReset = new Date(currentMonthReset);
+            nextReset.setUTCMonth(currentMonthReset.getUTCMonth() + 1);
+          } else {
+            nextReset = currentMonthReset;
+            lastReset = new Date(currentMonthReset);
+            lastReset.setUTCMonth(currentMonthReset.getUTCMonth() - 1);
+          }
+        } else {
+          currentMonthReset.setDate(resetDate);
+          currentMonthReset.setHours(hours, minutes, 0, 0);
+          
+          if (now.getTime() >= currentMonthReset.getTime()) {
+            lastReset = currentMonthReset;
+            nextReset = new Date(currentMonthReset);
+            nextReset.setMonth(currentMonthReset.getMonth() + 1);
+          } else {
+            nextReset = currentMonthReset;
+            lastReset = new Date(currentMonthReset);
+            lastReset.setMonth(currentMonthReset.getMonth() - 1);
+          }
+        }
+      } else {
+        if (useUtc) {
+          const currentWeekReset = new Date(now);
+          const currentDay = now.getUTCDay();
+          const dayDiff = resetDay - currentDay;
+          
+          currentWeekReset.setUTCDate(now.getUTCDate() + dayDiff);
+          currentWeekReset.setUTCHours(hours, minutes, 0, 0);
+
+          if (now.getTime() >= currentWeekReset.getTime()) {
+            lastReset = currentWeekReset;
+            nextReset = new Date(currentWeekReset);
+            nextReset.setUTCDate(currentWeekReset.getUTCDate() + 7);
+          } else {
+            nextReset = currentWeekReset;
+            lastReset = new Date(currentWeekReset);
+            lastReset.setUTCDate(currentWeekReset.getUTCDate() - 7);
+          }
+        } else {
+          const currentWeekReset = new Date(now);
+          const currentDay = now.getDay();
+          const dayDiff = resetDay - currentDay;
+          
+          currentWeekReset.setDate(now.getDate() + dayDiff);
+          currentWeekReset.setHours(hours, minutes, 0, 0);
+
+          if (now.getTime() >= currentWeekReset.getTime()) {
+            lastReset = currentWeekReset;
+            nextReset = new Date(currentWeekReset);
+            nextReset.setDate(currentWeekReset.getDate() + 7);
+          } else {
+            nextReset = currentWeekReset;
+            lastReset = new Date(currentWeekReset);
+            lastReset.setDate(currentWeekReset.getDate() - 7);
+          }
+        }
+      }
+
+      const totalCycleMs = nextReset.getTime() - lastReset.getTime();
+      const elapsedMs = now.getTime() - lastReset.getTime();
+      let expectedPct = Math.min(100, Math.max(0, (elapsedMs / totalCycleMs) * 100));
+      if (tracker.trackingDirection === 'down') {
+        expectedPct = 100 - expectedPct;
+      }
+      const remainingMs = nextReset.getTime() - now.getTime();
+
+      return {
+        expectedPct,
+        remainingMs,
+        lastReset,
+        nextReset
+      };
+    }
+
+    // Refresh UI metrics for individual tracker card
+    function updateTrackerUI(id) {
+      const tracker = state.trackers.find(t => t.id === id);
+      if (!tracker) return;
+ 
+      const data = calculateExpectedPace(tracker);
+      const current = tracker.currentPct;
+      
+      const expectedEl = document.getElementById(`${id}-expected-pct`);
+      const currentEl = document.getElementById(`${id}-current-pct`);
+      if (expectedEl) expectedEl.innerText = formatUsageValue(tracker, data.expectedPct);
+      if (currentEl) currentEl.innerText = formatUsageValue(tracker, current);
+ 
+      // Set deviation status & labels
+      let deviation = current - data.expectedPct;
+      if (tracker.trackingDirection === 'down') {
+        deviation = data.expectedPct - current;
+      }
+      const absDeviation = Math.abs(deviation).toFixed(2);
+      
+      const isCredits = tracker.quotaMode === 'credits';
+      const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+      const maxVal = tracker.maxQuota || 100.0;
+      const devVal = (deviation / 100) * maxVal;
+      const absDevVal = Math.abs(devVal).toFixed(2);
+      
+      const devEl = document.getElementById(`${id}-deviation`);
+      const statusLabelEl = document.getElementById(`${id}-status-label`);
+      const descEl = document.getElementById(`${id}-desc`);
+      
+      if (devEl && statusLabelEl && descEl) {
+        statusLabelEl.className = "pacing-status";
+        
+        if (deviation > 2.0) {
+          devEl.innerText = isCredits ? `+${symbol}${absDevVal}` : `+${absDeviation}%`;
+          devEl.style.color = "var(--color-lead-red)";
+          statusLabelEl.classList.add("status-lead");
+          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Over Utilization Limit";
+          descEl.innerText = isCredits 
+            ? `You are running ${symbol}${absDevVal} ahead of the cycle utilization. You may hit your quota limit early.` 
+            : `You are running ${absDeviation}% ahead of the cycle utilization. You may hit your quota limit early.`;
+        } else if (deviation < -2.0) {
+          devEl.innerText = isCredits ? `-${symbol}${absDevVal}` : `-${absDeviation}%`;
+          devEl.style.color = "var(--color-lag-green)";
+          statusLabelEl.classList.add("status-lag");
+          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Under Utilization Limit";
+          descEl.innerText = isCredits 
+            ? `You are ${symbol}${absDevVal} behind the cycle utilization line. You can safely utilize more.` 
+            : `You are ${absDeviation}% behind the cycle utilization line. You can safely utilize more.`;
+        } else {
+          devEl.innerText = isCredits 
+            ? (devVal >= 0 ? `+${symbol}${absDevVal}` : `-${symbol}${absDevVal}`)
+            : `${deviation >= 0 ? '+' : '-'}${absDeviation}%`;
+          devEl.style.color = "var(--color-track-green)";
+          statusLabelEl.classList.add("status-track");
+          statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Optimal Utilization";
+          descEl.innerText = `Awesome! You are utilizing perfectly to hit 100% usage right on schedule.`;
+        }
+      }
+ 
+      // Update progress bar visuals
+      const barFill = document.getElementById(`${id}-bar-fill`);
+      const marker = document.getElementById(`${id}-marker`);
+      const lagZone = document.getElementById(`${id}-lag-zone`);
+      const leadZone = document.getElementById(`${id}-lead-zone`);
+ 
+      if (barFill && marker && lagZone && leadZone) {
+        marker.style.left = `${data.expectedPct}%`;
+        barFill.style.width = `${current}%`;
+ 
+        const uiDeviation = current - data.expectedPct;
+        if (uiDeviation >= 0) {
+          if (tracker.trackingDirection === 'down') {
+            lagZone.style.width = '0%';
+            leadZone.style.backgroundColor = 'var(--color-lag-green)';
+            leadZone.style.left = `${data.expectedPct}%`;
+            leadZone.style.width = `${uiDeviation}%`;
+          } else {
+            lagZone.style.width = '0%';
+            leadZone.style.backgroundColor = 'var(--color-lead-red)';
+            leadZone.style.left = `${data.expectedPct}%`;
+            leadZone.style.width = `${uiDeviation}%`;
+          }
+        } else {
+          if (tracker.trackingDirection === 'down') {
+            leadZone.style.width = '0%';
+            lagZone.style.backgroundColor = 'var(--color-lead-red)';
+            lagZone.style.left = `${current}%`;
+            lagZone.style.width = `${Math.abs(uiDeviation)}%`;
+          } else {
+            leadZone.style.width = '0%';
+            lagZone.style.backgroundColor = 'var(--color-lag-green)';
+            lagZone.style.left = `${current}%`;
+            lagZone.style.width = `${Math.abs(uiDeviation)}%`;
+          }
+        }
+      }
+ 
+      // Update countdown display text
+      const resetTimeEl = document.getElementById(`${id}-reset-time`);
+      if (resetTimeEl) {
+        const days = Math.floor(data.remainingMs / (24 * 3600 * 1000));
+        const hours = Math.floor((data.remainingMs % (24 * 3600 * 1000)) / (3600 * 1000));
+        const minutes = Math.floor((data.remainingMs % (3600 * 1000)) / (60 * 1000));
+        const seconds = Math.floor((data.remainingMs % (60 * 1000)) / 1000);
+        
+        resetTimeEl.innerText = `${days}d ${hours}h ${minutes}m`;
+      }
+    }
+
+    // Tick clock updates for all timers
+    function tickClock() {
+      state.trackers.forEach(t => {
+        updateTrackerUI(t.id);
+      });
+    }
+
+    // Helper to show/hide modal fields based on selected mode
+        function toggleModalFreqFields() {
+      const freq = document.getElementById('modal-reset-freq').value;
+      if (freq === 'monthly') {
+        document.getElementById('modal-reset-day-row').style.display = 'none';
+        document.getElementById('modal-reset-date-row').style.display = 'block';
+      } else {
+        document.getElementById('modal-reset-day-row').style.display = 'block';
+        document.getElementById('modal-reset-date-row').style.display = 'none';
+      }
+    }
+
+    function toggleModalQuotaFields() {
+      const mode = document.getElementById('modal-quota-mode').value;
+      const maxQuotaRow = document.getElementById('modal-max-quota-row');
+      const currencyRow = document.getElementById('modal-currency-row');
+      if (mode === 'credits') {
+        maxQuotaRow.style.display = 'block';
+        currencyRow.style.display = 'block';
+      } else {
+        maxQuotaRow.style.display = 'none';
+        currencyRow.style.display = 'none';
+      }
+    }
+
+    // Trigger: Open Add or Edit Overlay Drawer Modal
+    function openAddEditModal(id = null) {
+      const modal = document.getElementById('add-edit-modal');
+      const form = document.getElementById('tracker-form');
+      const modalTitle = document.getElementById('modal-title');
+      const submitBtn = document.getElementById('modal-submit-btn');
+      
+      form.reset();
+      
+      if (id) {
+        // Edit Mode
+        const tracker = state.trackers.find(t => t.id === id);
+        if (!tracker) return;
+        
+        modalTitle.innerText = "Edit AI Tracker";
+        submitBtn.innerText = "Save Changes";
+        document.getElementById('edit-tracker-id').value = id;
+        document.getElementById('modal-name').value = tracker.name;
+        document.getElementById('modal-tracking-direction').value = tracker.trackingDirection || 'up';
+        document.getElementById('modal-reset-freq').value = tracker.resetFreq || 'weekly';
+        document.getElementById('modal-reset-day').value = tracker.resetDay;
+        document.getElementById('modal-reset-date').value = tracker.resetDate || 1;
+        document.getElementById('modal-reset-time').value = tracker.resetTime;
+        document.getElementById('modal-utc').checked = tracker.useUtc;
+        
+        document.getElementById('modal-quota-mode').value = tracker.quotaMode || 'percentage';
+        document.getElementById('modal-max-quota').value = tracker.maxQuota || 20.00;
+        document.getElementById('modal-currency').value = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+      } else {
+        // Create Mode
+        modalTitle.innerText = "Add AI Tracker";
+        submitBtn.innerText = "Add Tracker";
+        document.getElementById('edit-tracker-id').value = '';
+        document.getElementById('modal-tracking-direction').value = 'up';
+        document.getElementById('modal-reset-freq').value = 'weekly';
+        document.getElementById('modal-reset-date').value = '1';
+        document.getElementById('modal-quota-mode').value = 'percentage';
+        document.getElementById('modal-max-quota').value = '20.00';
+        document.getElementById('modal-currency').value = '$';
+      }
+      
+      toggleModalQuotaFields();
+      toggleModalFreqFields();
+      modal.classList.add('open');
+    }
+
+    function closeAddEditModal() {
+      document.getElementById('add-edit-modal').classList.remove('open');
+    }
+
+    function handleOverlayClick(e) {
+      // Close only if click is outside modal-content
+      if (e.target.id === 'add-edit-modal') {
+        closeAddEditModal();
+      }
+    }
+
+    // Form Submit Event Handler: Creates or Updates tracker config
+    function saveTracker(e) {
+      e.preventDefault();
+      
+      const id = document.getElementById('edit-tracker-id').value;
+      const name = document.getElementById('modal-name').value.trim();
+      const trackingDirection = document.getElementById('modal-tracking-direction').value;
+      const resetFreq = document.getElementById('modal-reset-freq').value;
+      const resetDay = parseInt(document.getElementById('modal-reset-day').value);
+      const resetDate = parseInt(document.getElementById('modal-reset-date').value) || 1;
+      const resetTime = document.getElementById('modal-reset-time').value || "00:00";
+      const useUtc = document.getElementById('modal-utc').checked;
+      
+      const quotaMode = document.getElementById('modal-quota-mode').value;
+      const maxQuota = quotaMode === 'credits' ? parseFloat(document.getElementById('modal-max-quota').value) || 20.00 : 100.0;
+      const currencySymbol = document.getElementById('modal-currency').value.trim() || '$';
+
+      if (id) {
+        // Update existing
+        const tracker = state.trackers.find(t => t.id === id);
+        if (tracker) {
+          tracker.name = name;
+          tracker.trackingDirection = trackingDirection;
+          tracker.resetFreq = resetFreq;
+          tracker.resetDay = resetDay;
+          tracker.resetDate = resetDate;
+          tracker.resetTime = resetTime;
+          tracker.useUtc = useUtc;
+          tracker.quotaMode = quotaMode;
+          tracker.maxQuota = maxQuota;
+          tracker.currencySymbol = currencySymbol;
+          showToast(`Updated tracker: ${name}`);
+        }
+      } else {
+        // Insert new
+        const newTracker = {
+          id: `ai-${Date.now()}`,
+          name,
+          trackingDirection,
+          resetFreq,
+          resetDay,
+          resetDate,
+          resetTime,
+          useUtc,
+          quotaMode,
+          maxQuota,
+          currencySymbol,
+          currentPct: trackingDirection === 'down' ? 100.0 : 0.0
+        };
+        state.trackers.push(newTracker);
+        showToast(`Added tracker: ${name}`);
+      }
+      
+      saveState();
+      closeAddEditModal();
+      renderDashboard();
+    }
+
+    // Delete tracker configuration card
+    function deleteTracker(id) {
+      const tracker = state.trackers.find(t => t.id === id);
+      if (!tracker) return;
+      
+      if (confirm(`Are you sure you want to remove the "${tracker.name}" tracker?`)) {
+        state.trackers = state.trackers.filter(t => t.id !== id);
+        
+        // Remove associated history items
+        if (state.history) {
+          state.history = state.history.filter(h => h.trackerId !== id);
+        }
+        
+        saveState();
+        renderDashboard();
+        renderHistory();
+        showToast(`Removed tracker: ${tracker.name}`);
+      }
+    }
+
+    // Toggle settings panel visible
+    function toggleSettings() {
+      const panel = document.getElementById('settings-panel');
+      const icon = document.getElementById('settings-btn-icon');
+      const text = document.getElementById('settings-btn-text');
+      
+      panel.classList.toggle('open');
+      if (panel.classList.contains('open')) {
+        icon.innerText = "✖";
+        text.innerText = "Close Options";
+      } else {
+        icon.innerText = "⚙️";
+        text.innerText = "Data Options";
+      }
+    }
+
+    // Logging Snapshot History
+    function logSnapshot(id) {
+      const tracker = state.trackers.find(t => t.id === id);
+      if (!tracker) return;
+
+      const data = calculateExpectedPace(tracker);
+      const current = tracker.currentPct;
+      let deviation = current - data.expectedPct;
+      if (tracker.trackingDirection === 'down') {
+        deviation = data.expectedPct - current;
+      }
+
+      const log = {
+        id: Date.now(),
+        trackerId: tracker.id,
+        timestamp: new Date().toISOString(),
+        aiName: tracker.name,
+        trackingDirection: tracker.trackingDirection,
+        currentPct: current,
+        expectedPct: data.expectedPct,
+        deviation: deviation
+      };
+
+      if (!state.history) state.history = [];
+      state.history.unshift(log);
+      
+      // Limit logs capacity
+      if (state.history.length > 50) state.history.pop();
+
+      saveState();
+      renderHistory();
+      renderPacingCurveChart();
+      showToast(`Snapshot logged for ${tracker.name}`);
+    }
+
+    // Render pacing logs history list
+    function renderHistory() {
+      const listEl = document.getElementById('history-list');
+      
+      if (!state.history || state.history.length === 0) {
+        listEl.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 2rem;">No logs recorded yet. Tap "Log Snapshot" on your tracker cards to save history.</div>`;
+        return;
+      }
+
+      let html = '';
+      state.history.forEach(item => {
+        const tracker = state.trackers.find(t => t.id === item.trackerId);
+        const dateStr = new Date(item.timestamp).toLocaleString();
+        const paceColor = item.deviation > 2 ? 'var(--color-lead-red)' : item.deviation < -2 ? 'var(--color-lag-green)' : 'var(--color-track-green)';
+        const paceLabel = item.deviation > 2 ? 'Lead' : item.deviation < -2 ? 'Lag' : 'On Track';
+        
+        // Format deviation and usage depending on tracking mode
+        let usageText = '';
+        let deviationText = '';
+        if (tracker && tracker.quotaMode === 'credits') {
+          const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+          const maxVal = tracker.maxQuota || 100.0;
+          const currentVal = (item.currentPct / 100) * maxVal;
+          const devVal = (item.deviation / 100) * maxVal;
+          usageText = `${symbol}${currentVal.toFixed(2)}`;
+          deviationText = devVal >= 0 ? `+${symbol}${devVal.toFixed(2)}` : `-${symbol}${Math.abs(devVal).toFixed(2)}`;
+        } else {
+          usageText = `${item.currentPct.toFixed(2)}%`;
+          deviationText = item.deviation >= 0 ? `+${item.deviation.toFixed(2)}%` : `${item.deviation.toFixed(2)}%`;
+        }
+
+        html += `
+          <div class="history-item">
+            <div class="history-meta">
+              <span class="history-label" title="${item.aiName}">${item.aiName}</span>
+              <span class="history-time">${dateStr}</span>
+            </div>
+            <div class="history-values">
+              <span class="history-usage">${usageText}</span>
+              <span class="history-pacing" style="color: ${paceColor}; margin-left: 8px;">
+                ${paceLabel} (${deviationText})
+              </span>
+            </div>
+          </div>
+        `;
+      });
+      listEl.innerHTML = html;
+    }
+
+    // Populate chart select dropdown (Deprecated - displaying all charts at once)
+    function populateChartSelect() {
+      // No-op since dropdown is removed
+    }
+
+    // Generate single pacing curve SVG chart
+    function generateSinglePacingChartHTML(tracker) {
+      const trackerId = tracker.id;
+      const isCredits = tracker.quotaMode === 'credits';
+      const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
+      const maxQuota = tracker.maxQuota || 100.0;
+
+      const cycleData = calculateExpectedPace(tracker);
+      const lastReset = cycleData.lastReset;
+
+      const logs = (state.history || [])
+        .filter(l => l.trackerId === trackerId && new Date(l.timestamp).getTime() >= lastReset.getTime())
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      const svgWidth = 480;
+      const svgHeight = 180;
+      const padding = { top: 15, right: 20, bottom: 25, left: 45 };
+      
+      const chartWidth = svgWidth - padding.left - padding.right;
+      const chartHeight = svgHeight - padding.top - padding.bottom;
+      
+      // Diagonal ideal pace line
+      const diagX1 = padding.left;
+      const diagY1 = tracker.trackingDirection === 'down' ? padding.top : padding.top + chartHeight;
+      const diagX2 = padding.left + chartWidth;
+      const diagY2 = tracker.trackingDirection === 'down' ? padding.top + chartHeight : padding.top;
+      
+      let pathHTML = '';
+      let pointsHTML = '';
+      let shadedAreasHTML = '';
+      
+      const recentLogs = logs.slice(-15);
+      
+      if (recentLogs.length > 0) {
+        const firstLogElapsed = tracker.trackingDirection === 'down' ? 100 - recentLogs[0].expectedPct : recentLogs[0].expectedPct;
+        if (firstLogElapsed > 0) {
+          recentLogs.unshift({ 
+            expectedPct: tracker.trackingDirection === 'down' ? 100 : 0, 
+            currentPct: tracker.trackingDirection === 'down' ? 100 : 0 
+          });
+        }
+      }
+      
+      if (recentLogs.length > 0) {
+        let pathD = '';
+        recentLogs.forEach((log, index) => {
+          const xPct = tracker.trackingDirection === 'down' ? 100 - log.expectedPct : log.expectedPct;
+          const yPct = log.currentPct;
+          const x = padding.left + (xPct / 100) * chartWidth;
+          const y = padding.top + chartHeight - (yPct / 100) * chartHeight;
+          
+          if (index === 0) {
+            pathD += `M ${x} ${y}`;
+          } else {
+            pathD += ` L ${x} ${y}`;
+          }
+          
+          if (log.id) {
+            const pointLabel = isCredits ? `${symbol}${((yPct / 100) * maxQuota).toFixed(2)}` : `${yPct.toFixed(2)}%`;
+            pointsHTML += `<circle cx="${x}" cy="${y}" r="4" fill="var(--theme-primary)" stroke="#ffffff" stroke-width="2" filter="url(#glow-${trackerId})" />`;
+            pointsHTML += `<text x="${x}" y="${y - 6}" fill="var(--text-secondary)" font-size="8" text-anchor="middle" font-family="Share Tech Mono">${pointLabel}</text>`;
+          }
+        });
+        
+        pathHTML = `<path d="${pathD}" fill="none" stroke="var(--theme-primary)" stroke-width="2" />`;
+        pathHTML += `
+          <defs>
+            <linearGradient id="area-green-${trackerId}" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="rgba(34, 197, 94, 0.4)" />
+              <stop offset="100%" stop-color="rgba(34, 197, 94, 0.05)" />
+            </linearGradient>
+            <linearGradient id="area-red-${trackerId}" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="rgba(239, 68, 68, 0.4)" />
+              <stop offset="100%" stop-color="rgba(239, 68, 68, 0.05)" />
+            </linearGradient>
+            <filter id="glow-${trackerId}">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+        `;
+        
+        // Background fills for Lead/Lag areas
+        if (recentLogs.length > 1) {
+          for (let i = 1; i < recentLogs.length; i++) {
+            const p1 = recentLogs[i - 1];
+            const p2 = recentLogs[i];
+            
+            const xPct1 = tracker.trackingDirection === 'down' ? 100 - p1.expectedPct : p1.expectedPct;
+            const xPct2 = tracker.trackingDirection === 'down' ? 100 - p2.expectedPct : p2.expectedPct;
+            const x1 = padding.left + (xPct1 / 100) * chartWidth;
+            const y1 = padding.top + chartHeight - (p1.currentPct / 100) * chartHeight;
+            
+            const x2 = padding.left + (xPct2 / 100) * chartWidth;
+            const y2 = padding.top + chartHeight - (p2.currentPct / 100) * chartHeight;
+            
+            let dev1 = p1.currentPct - p1.expectedPct;
+            let dev2 = p2.currentPct - p2.expectedPct;
+            if (tracker.trackingDirection === 'down') {
+              dev1 = p1.expectedPct - p1.currentPct;
+              dev2 = p2.expectedPct - p2.currentPct;
+            }
+            
+            const pathSegment = `M ${x1} ${y1} L ${x2} ${y2} L ${x2} ${padding.top + chartHeight} L ${x1} ${padding.top + chartHeight} Z`;
+            
+            if (dev1 >= 0 && dev2 >= 0) {
+              shadedAreasHTML += `<path d="${pathSegment}" fill="url(#area-red-${trackerId})" stroke="none" />`;
+            } else if (dev1 <= 0 && dev2 <= 0) {
+              shadedAreasHTML += `<path d="${pathSegment}" fill="url(#area-green-${trackerId})" stroke="none" />`;
+            } else {
+              const avgDev = (dev1 + dev2) / 2;
+              const fillColor = avgDev >= 0 ? `url(#area-red-${trackerId})` : `url(#area-green-${trackerId})`;
+              shadedAreasHTML += `<path d="${pathSegment}" fill="${fillColor}" stroke="none" />`;
+            }
+          }
+        }
+      } else {
+        return `
+          <div style="background: transparent; border-radius: 12px; padding: 1.25rem; border: 1px dashed rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
+            <h4 style="font-family: 'Outfit', sans-serif; margin-bottom: 0.5rem; color: var(--text-primary);">${tracker.name}</h4>
+            <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">No logs recorded yet. Tap "Log Snapshot" on the card to show utilization curve.</p>
+          </div>
+        `;
+      }
+      
+      const label100 = isCredits ? `${symbol}${maxQuota.toFixed(0)}` : '100%';
+      const label50 = isCredits ? `${symbol}${(maxQuota/2).toFixed(0)}` : '50%';
+      const label0 = isCredits ? `${symbol}0` : '0%';
+
+      return `
+        <div style="background: transparent; border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.04);">
+          <h4 style="font-family: 'Outfit', sans-serif; margin-bottom: 0.75rem; color: var(--text-primary); text-align: center;">${tracker.name}</h4>
+          <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="100%" style="overflow: visible;">
+            <!-- Grid Lines -->
+            <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left + chartWidth}" y2="${padding.top}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+            <line x1="${padding.left}" y1="${padding.top + chartHeight/2}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight/2}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+            <line x1="${padding.left + chartWidth/2}" y1="${padding.top}" x2="${padding.left + chartWidth/2}" y2="${padding.top + chartHeight}" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+            
+            <!-- Expected linear slope -->
+            <line x1="${diagX1}" y1="${diagY1}" x2="${diagX2}" y2="${diagY2}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" stroke-dasharray="4,4" />
+            
+            <!-- Axis Labels -->
+            <text x="${padding.left - 8}" y="${padding.top + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="Share Tech Mono">${label100}</text>
+            <text x="${padding.left - 8}" y="${padding.top + chartHeight/2 + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="Share Tech Mono">${label50}</text>
+            <text x="${padding.left - 8}" y="${padding.top + chartHeight + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end" font-family="Share Tech Mono">${label0}</text>
+            
+            <text x="${padding.left}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8" text-anchor="middle">Start</text>
+            <text x="${padding.left + chartWidth/2}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8" text-anchor="middle">Mid-Week</text>
+            <text x="${padding.left + chartWidth}" y="${padding.top + chartHeight + 15}" fill="var(--text-muted)" font-size="8" text-anchor="middle">Reset</text>
+            
+            <!-- Axes Border -->
+            <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+            <line x1="${padding.left}" y1="${padding.top + chartHeight}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight}" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+            
+            <!-- Area Fills -->
+            ${shadedAreasHTML}
+            
+            <!-- Actual paths & points -->
+            ${pathHTML}
+            ${pointsHTML}
+          </svg>
+        </div>
+      `;
+    }
+
+    // Render the SVG chart comparing entered logs against the ideal pace line
+    function renderPacingCurveChart() {
+      const container = document.getElementById('pacing-chart-container');
+      if (!container) return;
+      
+      if (state.trackers.length === 0) {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.9rem; text-align: center; width: 100%; padding: 2.5rem 1rem;">No tracker configured. Add an AI Tracker above to start visualization.</div>`;
+        return;
+      }
+      
+      let html = '<div class="charts-grid">';
+      state.trackers.forEach(tracker => {
+        html += generateSinglePacingChartHTML(tracker);
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // DB: Data Management Functions
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `ai_quota_pacing_backup_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Backup exported successfully!");
+    }
+
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = readerEvent => {
+          try {
+            const parsed = JSON.parse(readerEvent.target.result);
+            if (parsed.trackers && Array.isArray(parsed.trackers)) {
+              state = parsed;
+              saveState();
+              renderDashboard();
+              renderHistory();
+              showToast("Backup state database restored!");
+            } else {
+              alert("Error: File contains invalid backup schema.");
+            }
+          } catch (err) {
+            alert("Error parsing file structure. Make sure you load a valid JSON state backup.");
+          }
+        }
+        reader.readAsText(file);
+      }
+      input.click();
+    }
+
+    function resetToFactoryDefaults() {
+      if (confirm("Are you sure you want to clear your local database? All current percentages, custom AI trackers, and log histories will be deleted.")) {
+        state = JSON.parse(JSON.stringify(DEFAULTS));
+        saveState();
+        renderDashboard();
+        renderHistory();
+        showToast("State database cleared & reset to defaults.");
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem('ai_quota_pacing_state', JSON.stringify(state));
+    }
+
+    // Toast Feedback popup system
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-success';
+      toast.innerHTML = `<span>✔️</span> <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${message}</span>`;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.add('show');
+      }, 50);
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
