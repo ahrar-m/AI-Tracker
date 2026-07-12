@@ -1268,7 +1268,9 @@
         const displayVal = isCredits ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2) : tracker.currentPct.toFixed(2);
         const maxVal = isCredits ? tracker.maxQuota : 100;
         const stepVal = isCredits ? 0.01 : 0.1;
-        const inputLabel = isCredits ? `Update Current Usage (${symbol})` : 'Update Current Usage (%)';
+        const inputLabel = tracker.trackingDirection === 'down'
+          ? (isCredits ? `Update Remaining Quota (${symbol})` : 'Update Remaining Quota (%)')
+          : (isCredits ? `Update Current Usage (${symbol})` : 'Update Current Usage (%)');
 
         const card = document.createElement('div');
         card.className = 'glass-card';
@@ -1324,11 +1326,11 @@
               </div>
   
               <div class="pct-row">
-                <span class="pct-label">Expected Utilization Target:</span>
+                <span class="pct-label" id="${tracker.id}-expected-label">Expected Utilization Target:</span>
                 <span class="pct-val" id="${tracker.id}-expected-pct">0.0%</span>
               </div>
               <div class="pct-row">
-                <span class="pct-label">Your Current Usage:</span>
+                <span class="pct-label" id="${tracker.id}-current-label">Your Current Usage:</span>
                 <span class="pct-val" id="${tracker.id}-current-pct">0.0%</span>
               </div>
               
@@ -1633,6 +1635,19 @@
       
       const expectedEl = document.getElementById(`${id}-expected-pct`);
       const currentEl = document.getElementById(`${id}-current-pct`);
+      const expectedLabelEl = document.getElementById(`${id}-expected-label`);
+      const currentLabelEl = document.getElementById(`${id}-current-label`);
+      
+      if (expectedLabelEl) {
+        expectedLabelEl.innerText = tracker.trackingDirection === 'down' 
+          ? 'Expected Quota Remaining:' 
+          : 'Expected Utilization Target:';
+      }
+      if (currentLabelEl) {
+        currentLabelEl.innerText = tracker.trackingDirection === 'down' 
+          ? 'Current Quota Remaining:' 
+          : 'Your Current Usage:';
+      }
       if (expectedEl) expectedEl.innerText = formatUsageValue(tracker, data.expectedPct);
       if (currentEl) currentEl.innerText = formatUsageValue(tracker, current);
  
@@ -1666,7 +1681,7 @@
             : `You are running ${absDeviation}% ahead of the cycle utilization. You may hit your quota limit early.`;
         } else if (deviation < -2.0) {
           devEl.innerText = isCredits ? `-${symbol}${absDevVal}` : `-${absDeviation}%`;
-          devEl.style.color = "var(--color-lag-green)";
+          devEl.style.color = "var(--color-lag-amber)";
           statusLabelEl.classList.add("status-lag");
           statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Under Utilization Limit";
           descEl.innerText = isCredits 
@@ -1679,7 +1694,9 @@
           devEl.style.color = "var(--color-track-green)";
           statusLabelEl.classList.add("status-track");
           statusLabelEl.querySelector("span:not(.status-dot)").innerText = "Optimal Utilization";
-          descEl.innerText = `Awesome! You are utilizing perfectly to hit 100% usage right on schedule.`;
+          descEl.innerText = tracker.trackingDirection === 'down'
+            ? `Awesome! You are utilizing perfectly to hit 0% remaining right on schedule.`
+            : `Awesome! You are utilizing perfectly to hit 100% usage right on schedule.`;
         }
       }
  
