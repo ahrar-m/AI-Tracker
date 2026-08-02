@@ -58,6 +58,9 @@
       currentPct = Math.min(100, Math.max(0, currentPct));
       let stepValue = parseFloat(raw.stepValue);
       if (isNaN(stepValue) || stepValue <= 0) stepValue = 1;
+      let pendingDelta = parseFloat(raw.pendingDelta);
+      if (isNaN(pendingDelta)) pendingDelta = 0;
+      pendingDelta = Math.min(100, Math.max(-100, pendingDelta));
       return {
         id,
         name: String(raw.name || '').trim() || `AI Tracker ${index + 1}`,
@@ -73,7 +76,8 @@
         themeIndex: Math.min(Math.max(parseInt(raw.themeIndex, 10) || 0, 0), COLOR_THEMES.length - 1),
         lastResetTime: raw.lastResetTime ? String(raw.lastResetTime) : null,
         currentPct,
-        stepValue
+        stepValue,
+        pendingDelta
       };
     }
 
@@ -195,6 +199,7 @@
 
             // Reset the active cycle's usage
             tracker.currentPct = tracker.trackingDirection === 'down' ? 100.0 : 0.0;
+            tracker.pendingDelta = 0;
             tracker.lastResetTime = lastReset.toISOString();
             stateChanged = true;
 
@@ -215,6 +220,11 @@
         saveState();
       }
       return stateChanged;
+    }
+
+    // Effective (committed + staged) utilization percentage for a tracker
+    function effectivePct(tracker) {
+      return Math.min(100, Math.max(0, tracker.currentPct + (tracker.pendingDelta || 0)));
     }
 
     // Format utility for displaying usage values
@@ -248,7 +258,7 @@
         const firstLetter = tracker.name.trim().charAt(0).toUpperCase();
         const isCredits = tracker.quotaMode === 'credits';
         const symbol = tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$';
-        const displayVal = isCredits ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2) : tracker.currentPct.toFixed(2);
+        const displayVal = isCredits ? ((effectivePct(tracker) / 100) * tracker.maxQuota).toFixed(2) : effectivePct(tracker).toFixed(2);
         const maxVal = isCredits ? tracker.maxQuota : 100;
         const stepVal = isCredits ? 0.01 : 0.1;
         const inputLabel = tracker.trackingDirection === 'down'
@@ -337,6 +347,8 @@
                   <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="flex: 2;">Log Snapshot</button>
                   <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', 1)" aria-label="Increase usage by step">+</button>
                 </div>
+
+                <div id="${tracker.id}-pending-row" style="display: none; margin-top: 0.6rem; text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--theme-primary);"></div>
               </div>
             </div>
             
@@ -481,8 +493,8 @@
         if (tracker) {
           const maxVal = tracker.quotaMode === 'credits' ? tracker.maxQuota : 100;
           if (val > maxVal) val = maxVal;
-          let pct = tracker.quotaMode === 'credits' ? (val / tracker.maxQuota) * 100 : val;
-          updateStatePct(id, pct);
+          const targetPct = tracker.quotaMode === 'credits' ? (val / tracker.maxQuota) * 100 : val;
+          stagePendingPct(id, targetPct);
         }
       });
 
@@ -503,24 +515,25 @@
       }
     }
 
-    // Sync the numeric input with the tracker's current value
+    // Sync the numeric input with the tracker's effective (committed + staged) value
     function updateNumericInputs(id) {
       const tracker = state.trackers.find(t => t.id === id);
       if (!tracker) return;
       const isCredits = tracker.quotaMode === 'credits';
       const value = isCredits
-        ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2)
-        : tracker.currentPct.toFixed(2);
+        ? ((effectivePct(tracker) / 100) * tracker.maxQuota).toFixed(2)
+        : effectivePct(tracker).toFixed(2);
       const numInput = document.getElementById(`${id}-num-input`);
       if (numInput && document.activeElement !== numInput) numInput.value = value;
     }
 
     const saveDebounceTimers = {};
 
-    function updateStatePct(id, val) {
+    // Stage a pending utilization target (committed only on Log Snapshot)
+    function stagePendingPct(id, targetPct) {
       const tracker = state.trackers.find(t => t.id === id);
       if (tracker) {
-        tracker.currentPct = Math.min(100, Math.max(0, val));
+        tracker.pendingDelta = Math.min(100, Math.max(0, targetPct)) - tracker.currentPct;
         updateNumericInputs(id);
         updateTrackerUI(id);
         clearTimeout(saveDebounceTimers[id]);
@@ -528,9 +541,10 @@
       }
     }
 
-    // Button trigger: increments/decrements tracker usage in display units
+    // Button trigger: stages increments/decrements into pendingDelta in display units
     // (percentage points for % mode, currency units for credits mode)
-    // Amount is set by the step input between the +/− buttons
+    // Amount is set by the step input between the +/− buttons.
+    // The staged change is committed to main progress only via Log Snapshot.
     function adjustPct(id, direction) {
       const tracker = state.trackers.find(t => t.id === id);
       if (!tracker) return;
@@ -543,19 +557,22 @@
       const isCredits = tracker.quotaMode === 'credits';
       const deltaPct = isCredits ? (deltaDisplay / tracker.maxQuota) * 100 : deltaDisplay;
 
-      let val = tracker.currentPct + deltaPct;
-      if (val < 0) val = 0;
-      if (val > 100) val = 100;
-
-      tracker.currentPct = val;
+      const prevPending = tracker.pendingDelta || 0;
+      const effective = Math.min(100, Math.max(0, tracker.currentPct + prevPending + deltaPct));
+      tracker.pendingDelta = effective - tracker.currentPct;
+      const actualDeltaPct = tracker.pendingDelta - prevPending;
 
       // Update DOM node directly to prevent re-render focus disruption
       updateNumericInputs(id);
 
       saveState();
       updateTrackerUI(id);
+      if (Math.abs(actualDeltaPct) < 1e-9) {
+        showToast(`${tracker.name} is already at its limit`);
+        return;
+      }
       const displayDelta = isCredits ? `${tracker.currencySymbol || '$'}${Math.abs(deltaDisplay).toFixed(2)}` : `${Math.abs(deltaDisplay)}%`;
-      showToast(`Adjusted ${tracker.name} usage by ${deltaPct >= 0 ? '+' : '-'}${displayDelta}`);
+      showToast(`Staged ${actualDeltaPct >= 0 ? '+' : '-'}${displayDelta} for ${tracker.name}. Tap Log Snapshot to apply.`);
     }
 
     // Clamp a month's reset day to the actual number of days in that month
@@ -798,6 +815,22 @@
         }
       }
  
+      // Update pending (staged) increment indicator
+      const pendingRow = document.getElementById(`${id}-pending-row`);
+      if (pendingRow) {
+        const pending = tracker.pendingDelta || 0;
+        if (Math.abs(pending) >= 1e-9) {
+          const pendingDisplay = isCredits
+            ? `${symbol}${Math.abs((pending / 100) * maxVal).toFixed(2)}`
+            : `${Math.abs(pending).toFixed(2)}%`;
+          pendingRow.style.display = 'block';
+          pendingRow.innerText = `Pending: ${pending >= 0 ? '+' : '-'}${pendingDisplay} — Log Snapshot to apply`;
+        } else {
+          pendingRow.style.display = 'none';
+          pendingRow.innerText = '';
+        }
+      }
+
       // Update countdown display text
       const resetTimeEl = document.getElementById(`${id}-reset-time`);
       if (resetTimeEl) {
@@ -1009,7 +1042,8 @@
           currencySymbol,
           themeIndex: selectedThemeIndex,
           currentPct: trackingDirection === 'down' ? 100.0 : 0.0,
-          stepValue: 1
+          stepValue: 1,
+          pendingDelta: 0
         };
         state.trackers.push(newTracker);
         showToast(`Added tracker: ${name}`);
@@ -1060,13 +1094,16 @@
       }
     }
 
-    // Logging Snapshot History
+    // Logging Snapshot History (commits any staged pending increment to main progress)
     function logSnapshot(id) {
       const tracker = state.trackers.find(t => t.id === id);
       if (!tracker) return;
 
+      const current = effectivePct(tracker);
+      tracker.currentPct = current;
+      tracker.pendingDelta = 0;
+
       const data = calculateExpectedPace(tracker);
-      const current = tracker.currentPct;
       let deviation = current - data.expectedPct;
       if (tracker.trackingDirection === 'down') {
         deviation = data.expectedPct - current;
@@ -1090,6 +1127,8 @@
       if (state.history.length > 50) state.history.pop();
 
       saveState();
+      updateNumericInputs(id);
+      updateTrackerUI(id);
       renderHistory();
       renderPacingCurveChart();
       showToast(`Snapshot logged for ${tracker.name}`);
