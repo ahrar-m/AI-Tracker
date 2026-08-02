@@ -7,7 +7,7 @@ A standalone, visually stunning HTML5 dashboard to track weekly and monthly usag
 - **Generic & Extensible**: Add, edit, and remove as many AI trackers as you want (e.g. Gemini, ChatGPT, Claude Pro, Antigravity, etc.).
 - **Bi-Directional Pacing**: Fully supports both **Count-Up** (0% to 100% usage tracking) and **Count-Down** (100% to 0% remaining quota tracking) models with dynamic card labels (e.g., "Expected Quota Remaining" vs "Expected Utilization Target") and automatically inverted lead/lag color-coding.
 - **Weekly & Monthly Limits**: Supports both weekly and monthly recurring credit/percentage reset cycles, including month-end clamping for reset dates 29–31.
-- **Mobile First UX**: Fully optimized for mobile screens with touch-friendly controls, a usage slider with linked number input, quick −/+ adjust buttons, and a slide-up settings drawer. Full zooming is supported for detailed chart inspection.
+- **Mobile First UX**: Fully optimized for mobile screens with touch-friendly controls, direct number input with adjustable +/− increment buttons, and a slide-up settings drawer. Full zooming is supported for detailed chart inspection.
 - **Utilization Engine**: Instantly computes your "expected" usage percentage based on the exact day and time of your cycle reset. Values are tracked with precise two-decimal accuracy.
 - **Lead/Lag Analysis**: Compares your actual usage against the target. Shows a red lead zone if you are over-consuming, and a green/amber buffer zone if you are under budget.
 - **Interactive Timeline Visualizer**: A beautiful custom-colored progress bar showing your current usage, expected target marker, and the budget gap.
@@ -20,10 +20,10 @@ A standalone, visually stunning HTML5 dashboard to track weekly and monthly usag
 
 ## How to Use
 
-1. Simply open [AI Tracker.html](file:///storage/emulated/0/Documents/Antigravity/AI-Tracker/AI%20Tracker.html) in any modern web browser.
+1. Simply open [index.html](file:///storage/emulated/0/Documents/Antigravity/AI-Tracker/index.html) in any modern web browser, or visit the GitHub Pages site.
 2. Tap **Add AI Tracker** to register a new service, choosing its name, tracking mode (Credits or Percentage), reset frequency (Weekly or Monthly), reset day/time, timezone, and theme color.
 3. Use the edit (✏️) and delete (🗑️) icons on any card to update or remove trackers.
-4. Update your current usage via the slider, the number input, or the −/+ buttons to analyze your utilization lead/lag.
+4. Update your current usage by typing a value directly or using the −/+ buttons (the increment amount is adjustable) to analyze your utilization lead/lag.
 5. Tap **Log Snapshot** to record a custom snapshot of your utilization logs.
 6. Switch to the **History** tab on any card to inspect your previous cycles' usage.
 7. Open the **Data Options** panel to export/import backups or clear the database.
