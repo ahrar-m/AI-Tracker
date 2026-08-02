@@ -16,7 +16,8 @@
       { primary: '#a855f7', secondary: '#ec4899' },
       { primary: '#f59e0b', secondary: '#ef4444' },
       { primary: '#10b981', secondary: '#06b6d4' },
-      { primary: '#f43f5e', secondary: '#f97316' }
+      { primary: '#f43f5e', secondary: '#f97316' },
+      { primary: '#64748b', secondary: '#1e293b' }
     ];
     let selectedThemeIndex = 0;
 
@@ -132,7 +133,10 @@
 
       // Close modal on Escape key
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeAddEditModal();
+        if (e.key === 'Escape') {
+          closeAddEditModal();
+          closeEditLogModal();
+        }
       });
 
       // Update UI clock ticks every 1 second
@@ -628,8 +632,7 @@
     }
 
     // Calculation: expected pacing, reset intervals, and countdown values
-    function calculateExpectedPace(tracker) {
-      const now = new Date();
+    function calculateExpectedPace(tracker, now = new Date()) {
       const resetFreq = tracker.resetFreq || 'weekly';
       const useUtc = !!tracker.useUtc;
 
@@ -1134,6 +1137,96 @@
       showToast(`Snapshot logged for ${tracker.name}`);
     }
 
+    // Edit / delete log entries
+    let editingLogId = null;
+
+    // Expected pacing percentage for a tracker at a historical moment
+    function expectedPctAtTime(tracker, isoTime) {
+      return calculateExpectedPace(tracker, new Date(isoTime)).expectedPct;
+    }
+
+    function editLog(id) {
+      const log = state.history.find(l => l.id === id);
+      if (!log) return;
+      const tracker = state.trackers.find(t => t.id === log.trackerId);
+      const isCredits = tracker && tracker.quotaMode === 'credits';
+      const maxVal = tracker ? (tracker.maxQuota || 100) : 100;
+
+      const valueInput = document.getElementById('edit-log-value');
+      const timeInput = document.getElementById('edit-log-timestamp');
+      valueInput.max = isCredits ? maxVal : 100;
+      valueInput.step = isCredits ? 0.01 : 0.1;
+      valueInput.value = isCredits
+        ? ((log.currentPct / 100) * maxVal).toFixed(2)
+        : log.currentPct.toFixed(2);
+
+      const d = new Date(log.timestamp);
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      timeInput.value = local;
+
+      editingLogId = id;
+      document.getElementById('edit-log-modal').classList.add('open');
+      document.getElementById('edit-log-value').focus();
+    }
+
+    function closeEditLogModal() {
+      document.getElementById('edit-log-modal').classList.remove('open');
+      editingLogId = null;
+    }
+
+    function handleLogOverlayClick(e) {
+      if (e.target.id === 'edit-log-modal') closeEditLogModal();
+    }
+
+    function saveLogEdit(e) {
+      if (e) e.preventDefault();
+      const log = state.history.find(l => l.id === editingLogId);
+      if (!log) return;
+      const tracker = state.trackers.find(t => t.id === log.trackerId);
+
+      const rawVal = parseFloat(document.getElementById('edit-log-value').value);
+      const rawTime = document.getElementById('edit-log-timestamp').value;
+      if (isNaN(rawVal)) {
+        showToast('Enter a valid usage value.');
+        return;
+      }
+      if (!rawTime) {
+        showToast('Enter a valid date and time.');
+        return;
+      }
+
+      const maxVal = tracker ? (tracker.maxQuota || 100) : 100;
+      const pct = tracker && tracker.quotaMode === 'credits' ? (rawVal / maxVal) * 100 : rawVal;
+      log.currentPct = Math.min(100, Math.max(0, pct));
+      log.timestamp = new Date(rawTime).toISOString();
+
+      if (tracker) {
+        const expected = expectedPctAtTime(tracker, log.timestamp);
+        log.expectedPct = expected;
+        log.deviation = tracker.trackingDirection === 'down'
+          ? expected - log.currentPct
+          : log.currentPct - expected;
+      }
+
+      closeEditLogModal();
+      saveState();
+      renderHistory();
+      renderPacingCurveChart();
+      showToast('Log updated.');
+    }
+
+    function deleteLog(id) {
+      const log = state.history.find(l => l.id === id);
+      if (!log) return;
+      if (confirm(`Delete this log entry from ${new Date(log.timestamp).toLocaleString()}?`)) {
+        state.history = state.history.filter(l => l.id !== id);
+        saveState();
+        renderHistory();
+        renderPacingCurveChart();
+        showToast('Log deleted.');
+      }
+    }
+
     // Render pacing logs history list
     function renderHistory() {
       const listEl = document.getElementById('history-list');
@@ -1176,6 +1269,10 @@
               <span class="history-pacing" style="color: ${paceColor}; margin-left: 8px;">
                 ${paceLabel} (${deviationText})
               </span>
+            </div>
+            <div class="history-actions">
+              <button class="btn-log-action" onclick="editLog(${item.id})" title="Edit log" aria-label="Edit log">✏️</button>
+              <button class="btn-log-action btn-log-delete" onclick="deleteLog(${item.id})" title="Delete log" aria-label="Delete log">🗑️</button>
             </div>
           </div>
         `;
