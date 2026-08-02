@@ -121,6 +121,10 @@
 
       // Flush any pending debounced saves when leaving the page
       window.addEventListener('beforeunload', saveState);
+      window.addEventListener('pagehide', saveState);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) saveState();
+      });
 
       // Close modal on Escape key
       document.addEventListener('keydown', (e) => {
@@ -484,16 +488,18 @@
 
       const stepInput = document.getElementById(`${id}-step-input`);
       if (stepInput) {
-        stepInput.addEventListener('input', (e) => {
-          let val = parseFloat(e.target.value);
+        const saveStepValue = () => {
+          let val = parseFloat(stepInput.value);
           if (isNaN(val) || val <= 0) val = 1;
+          stepInput.value = val;
           const tracker = state.trackers.find(t => t.id === id);
           if (tracker && tracker.stepValue !== val) {
             tracker.stepValue = val;
-            clearTimeout(saveDebounceTimers[id]);
-            saveDebounceTimers[id] = setTimeout(saveState, 300);
+            saveState();
           }
-        });
+        };
+        stepInput.addEventListener('input', saveStepValue);
+        stepInput.addEventListener('change', saveStepValue);
       }
     }
 
