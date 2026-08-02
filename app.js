@@ -342,12 +342,12 @@
               <div class="input-section">
                 <div class="input-label-container">
                   <span class="input-label">${inputLabel}</span>
-                  <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="${maxVal}" step="${stepVal}" value="${displayVal}">
+                  <input type="text" inputmode="decimal" class="pct-number-input" id="${tracker.id}-num-input" value="${displayVal}">
                 </div>
 
                 <div class="action-btn-container">
                   <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', -1)" aria-label="Decrease usage by step">−</button>
-                  <input type="number" class="step-number-input" id="${tracker.id}-step-input" min="0" step="${stepVal}" value="${tracker.stepValue || 1}" title="Increment amount for +/− buttons">
+                  <input type="text" inputmode="decimal" class="step-number-input" id="${tracker.id}-step-input" value="${tracker.stepValue || 1}" title="Increment amount for +/− buttons">
                   <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="flex: 2;">Log Snapshot</button>
                   <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', 1)" aria-label="Increase usage by step">+</button>
                 </div>
@@ -488,34 +488,60 @@
       const numInput = document.getElementById(`${id}-num-input`);
       if (!numInput) return;
 
+      // Parse tolerant of partial input ("1.", ".5", empty while typing)
+      const parseFlexible = (raw) => {
+        const text = String(raw).trim();
+        if (text === '' || text === '.' || text === '-') return null;
+        const val = parseFloat(text);
+        return isNaN(val) ? null : val;
+      };
+
       numInput.addEventListener('input', (e) => {
-        let val = parseFloat(e.target.value);
-        if (isNaN(val)) val = 0;
-        if (val < 0) val = 0;
+        const val = parseFlexible(e.target.value);
+
+        if (val === null) {
+          // Empty / incomplete entry: clear any staged delta, leave text as typed
+          const tracker = state.trackers.find(t => t.id === id);
+          if (tracker && tracker.pendingDelta !== 0) {
+            tracker.pendingDelta = 0;
+            clearTimeout(saveDebounceTimers[id]);
+            saveDebounceTimers[id] = setTimeout(saveState, 300);
+          }
+          return;
+        }
 
         const tracker = state.trackers.find(t => t.id === id);
         if (tracker) {
           const maxVal = tracker.quotaMode === 'credits' ? tracker.maxQuota : 100;
-          if (val > maxVal) val = maxVal;
-          const targetPct = tracker.quotaMode === 'credits' ? (val / tracker.maxQuota) * 100 : val;
+          const clamped = val < 0 ? 0 : val > maxVal ? maxVal : val;
+          const targetPct = tracker.quotaMode === 'credits' ? (clamped / tracker.maxQuota) * 100 : clamped;
           stagePendingPct(id, targetPct);
         }
       });
 
+      // If left empty or invalid, snap back to the effective value
+      numInput.addEventListener('blur', () => {
+        if (parseFlexible(numInput.value) === null) updateNumericInputs(id);
+      });
+
       const stepInput = document.getElementById(`${id}-step-input`);
       if (stepInput) {
-        const saveStepValue = () => {
+        // Only commit on blur/Enter so typing isn't clobbered
+        const commitStepValue = () => {
           let val = parseFloat(stepInput.value);
           if (isNaN(val) || val <= 0) val = 1;
           stepInput.value = val;
           const tracker = state.trackers.find(t => t.id === id);
-          if (tracker && tracker.stepValue !== val) {
+          if (tracker && Math.abs(tracker.stepValue - val) > 1e-9) {
             tracker.stepValue = val;
             saveState();
           }
         };
-        stepInput.addEventListener('input', saveStepValue);
-        stepInput.addEventListener('change', saveStepValue);
+        stepInput.addEventListener('change', commitStepValue);
+        stepInput.addEventListener('blur', commitStepValue);
+        stepInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') commitStepValue();
+        });
       }
     }
 
