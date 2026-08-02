@@ -56,6 +56,8 @@
       let currentPct = parseFloat(raw.currentPct);
       if (isNaN(currentPct)) currentPct = direction === 'down' ? 100 : 0;
       currentPct = Math.min(100, Math.max(0, currentPct));
+      let stepValue = parseFloat(raw.stepValue);
+      if (isNaN(stepValue) || stepValue <= 0) stepValue = 1;
       return {
         id,
         name: String(raw.name || '').trim() || `AI Tracker ${index + 1}`,
@@ -70,7 +72,8 @@
         useUtc: !!raw.useUtc,
         themeIndex: Math.min(Math.max(parseInt(raw.themeIndex, 10) || 0, 0), COLOR_THEMES.length - 1),
         lastResetTime: raw.lastResetTime ? String(raw.lastResetTime) : null,
-        currentPct
+        currentPct,
+        stepValue
       };
     }
 
@@ -326,7 +329,7 @@
 
                 <div class="action-btn-container">
                   <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', -1)" aria-label="Decrease usage by step">−</button>
-                  <input type="number" class="step-number-input" id="${tracker.id}-step-input" min="0" step="${stepVal}" value="1" title="Increment amount for +/− buttons">
+                  <input type="number" class="step-number-input" id="${tracker.id}-step-input" min="0" step="${stepVal}" value="${tracker.stepValue || 1}" title="Increment amount for +/− buttons">
                   <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="flex: 2;">Log Snapshot</button>
                   <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', 1)" aria-label="Increase usage by step">+</button>
                 </div>
@@ -478,6 +481,20 @@
           updateStatePct(id, pct);
         }
       });
+
+      const stepInput = document.getElementById(`${id}-step-input`);
+      if (stepInput) {
+        stepInput.addEventListener('input', (e) => {
+          let val = parseFloat(e.target.value);
+          if (isNaN(val) || val <= 0) val = 1;
+          const tracker = state.trackers.find(t => t.id === id);
+          if (tracker && tracker.stepValue !== val) {
+            tracker.stepValue = val;
+            clearTimeout(saveDebounceTimers[id]);
+            saveDebounceTimers[id] = setTimeout(saveState, 300);
+          }
+        });
+      }
     }
 
     // Sync the numeric input with the tracker's current value
@@ -513,8 +530,8 @@
       if (!tracker) return;
 
       const stepInput = document.getElementById(`${id}-step-input`);
-      let stepDisplay = stepInput ? parseFloat(stepInput.value) : 1;
-      if (isNaN(stepDisplay) || stepDisplay <= 0) stepDisplay = 1;
+      let stepDisplay = stepInput ? parseFloat(stepInput.value) : NaN;
+      if (isNaN(stepDisplay) || stepDisplay <= 0) stepDisplay = tracker.stepValue > 0 ? tracker.stepValue : 1;
       const deltaDisplay = direction * stepDisplay;
 
       const isCredits = tracker.quotaMode === 'credits';
@@ -985,7 +1002,8 @@
           maxQuota,
           currencySymbol,
           themeIndex: selectedThemeIndex,
-          currentPct: trackingDirection === 'down' ? 100.0 : 0.0
+          currentPct: trackingDirection === 'down' ? 100.0 : 0.0,
+          stepValue: 1
         };
         state.trackers.push(newTracker);
         showToast(`Added tracker: ${name}`);
