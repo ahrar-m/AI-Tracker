@@ -432,40 +432,6 @@
       color: var(--text-primary);
     }
 
-    .slider-container {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    input[type="range"] {
-      flex-grow: 1;
-      height: 8px; /* Slightly thicker for mobile touch comfort */
-      -webkit-appearance: none;
-      appearance: none;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 22px; /* Enlarge for mobile ease of access */
-      height: 22px;
-      border-radius: 50%;
-      cursor: pointer;
-      background: var(--theme-primary);
-      border: 2px solid #ffffff;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-      transition: transform 0.1s;
-    }
-
-    input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.1);
-    }
-
     .pct-number-input {
       width: 110px;
       background: rgba(0, 0, 0, 0.4);
@@ -488,6 +454,25 @@
     .action-btn-container {
       display: flex;
       gap: 0.5rem;
+    }
+
+    .step-number-input {
+      width: 58px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 0.5rem 0.3rem;
+      color: var(--text-primary);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .step-number-input:focus {
+      border-color: var(--theme-primary);
+      background: rgba(0, 0, 0, 0.6);
     }
 
     .btn-action {
@@ -714,7 +699,7 @@
       font-weight: 500;
     }
 
-    .setting-row select, .setting-row input[type="text"], .setting-row input[type="time"] {
+    .setting-row select, .setting-row input[type="text"], .setting-row input[type="time"], .setting-row input[type="number"] {
       background: rgba(0, 0, 0, 0.35);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
@@ -1494,14 +1479,11 @@
                   <input type="number" class="pct-number-input" id="${tracker.id}-num-input" min="0" max="${maxVal}" step="${stepVal}" value="${displayVal}">
                 </div>
 
-                <div class="slider-container">
-                  <input type="range" id="${tracker.id}-slider" min="0" max="${maxVal}" step="${stepVal}" value="${displayVal}">
-                </div>
-
                 <div class="action-btn-container">
-                  <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', -1)" aria-label="Decrease usage by 1">−</button>
+                  <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', -1)" aria-label="Decrease usage by step">−</button>
+                  <input type="number" class="step-number-input" id="${tracker.id}-step-input" min="0" step="${stepVal}" value="1" title="Increment amount for +/− buttons">
                   <button class="btn-action btn-primary" onclick="logSnapshot('${tracker.id}')" style="flex: 2;">Log Snapshot</button>
-                  <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', 1)" aria-label="Increase usage by 1">+</button>
+                  <button class="btn-action btn-secondary" onclick="adjustPct('${tracker.id}', 1)" aria-label="Increase usage by step">+</button>
                 </div>
               </div>
             </div>
@@ -1636,7 +1618,6 @@
     // Helper: Initialize direct numeric text field listeners
     function initInputBinding(id) {
       const numInput = document.getElementById(`${id}-num-input`);
-      const slider = document.getElementById(`${id}-slider`);
       if (!numInput) return;
 
       numInput.addEventListener('input', (e) => {
@@ -1652,21 +1633,9 @@
           updateStatePct(id, pct);
         }
       });
-
-      if (slider) {
-        slider.addEventListener('input', (e) => {
-          let val = parseFloat(e.target.value);
-          if (isNaN(val)) return;
-          const tracker = state.trackers.find(t => t.id === id);
-          if (tracker) {
-            let pct = tracker.quotaMode === 'credits' ? (val / tracker.maxQuota) * 100 : val;
-            updateStatePct(id, pct);
-          }
-        });
-      }
     }
 
-    // Sync the numeric input and slider with the tracker's current value
+    // Sync the numeric input with the tracker's current value
     function updateNumericInputs(id) {
       const tracker = state.trackers.find(t => t.id === id);
       if (!tracker) return;
@@ -1675,9 +1644,7 @@
         ? ((tracker.currentPct / 100) * tracker.maxQuota).toFixed(2)
         : tracker.currentPct.toFixed(2);
       const numInput = document.getElementById(`${id}-num-input`);
-      const slider = document.getElementById(`${id}-slider`);
       if (numInput && document.activeElement !== numInput) numInput.value = value;
-      if (slider && document.activeElement !== slider) slider.value = value;
     }
 
     const saveDebounceTimers = {};
@@ -1695,9 +1662,15 @@
 
     // Button trigger: increments/decrements tracker usage in display units
     // (percentage points for % mode, currency units for credits mode)
-    function adjustPct(id, deltaDisplay) {
+    // Amount is set by the step input between the +/− buttons
+    function adjustPct(id, direction) {
       const tracker = state.trackers.find(t => t.id === id);
       if (!tracker) return;
+
+      const stepInput = document.getElementById(`${id}-step-input`);
+      let stepDisplay = stepInput ? parseFloat(stepInput.value) : 1;
+      if (isNaN(stepDisplay) || stepDisplay <= 0) stepDisplay = 1;
+      const deltaDisplay = direction * stepDisplay;
 
       const isCredits = tracker.quotaMode === 'credits';
       const deltaPct = isCredits ? (deltaDisplay / tracker.maxQuota) * 100 : deltaDisplay;
