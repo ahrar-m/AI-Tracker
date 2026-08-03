@@ -598,11 +598,8 @@
       saveState();
       updateTrackerUI(id);
       if (Math.abs(actualDeltaPct) < 1e-9) {
-        showToast(`${tracker.name} is already at its limit`);
         return;
       }
-      const displayDelta = isCredits ? `${tracker.currencySymbol || '$'}${Math.abs(deltaDisplay).toFixed(2)}` : `${Math.abs(deltaDisplay)}%`;
-      showToast(`Staged ${actualDeltaPct >= 0 ? '+' : '-'}${displayDelta} for ${tracker.name}. Tap Log Snapshot to apply.`);
     }
 
     // Clamp a month's reset day to the actual number of days in that month
