@@ -1253,6 +1253,20 @@
       }
     }
 
+    // Format a utilization delta vs the previous log (usage points or currency)
+    function formatDeltaText(deltaPct, isCredits, symbol, maxVal) {
+      const absPct = Math.abs(deltaPct);
+      if (absPct < 0.0005) {
+        return isCredits ? `▬ ${symbol}0.00` : '▬ 0.00%';
+      }
+      const arrow = deltaPct > 0 ? '▲' : '▼';
+      if (isCredits) {
+        const deltaVal = (deltaPct / 100) * maxVal;
+        return `${arrow} ${deltaPct > 0 ? '+' : '-'}${symbol}${Math.abs(deltaVal).toFixed(2)}`;
+      }
+      return `${arrow} ${deltaPct > 0 ? '+' : '-'}${Math.abs(deltaPct).toFixed(2)}%`;
+    }
+
     // Render pacing logs history list
     function renderHistory() {
       const listEl = document.getElementById('history-list');
@@ -1284,6 +1298,22 @@
           deviationText = item.deviation >= 0 ? `+${item.deviation.toFixed(2)}%` : `${item.deviation.toFixed(2)}%`;
         }
 
+        // Delta vs the most recent earlier log for the same tracker
+        let deltaText = '';
+        if (tracker) {
+          const prevLog = state.history
+            .filter(l => l.trackerId === item.trackerId && l.id !== item.id && new Date(l.timestamp).getTime() < new Date(item.timestamp).getTime())
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+          if (prevLog) {
+            deltaText = formatDeltaText(
+              item.currentPct - prevLog.currentPct,
+              tracker.quotaMode === 'credits',
+              tracker.currencySymbol !== undefined ? tracker.currencySymbol : '$',
+              tracker.maxQuota || 100.0
+            );
+          }
+        }
+
         html += `
           <div class="history-item">
             <div class="history-meta">
@@ -1295,6 +1325,7 @@
               <span class="history-pacing" style="color: ${paceColor}; margin-left: 8px;">
                 ${paceLabel} (${deviationText})
               </span>
+              ${deltaText ? `<span class="history-delta" title="Change from previous log" style="margin-left: 8px; color: var(--text-secondary);">${deltaText}</span>` : ''}
             </div>
             <div class="history-actions">
               <button class="btn-log-action" onclick="editLog(${item.id})" title="Edit log" aria-label="Edit log">✏️</button>
@@ -1400,6 +1431,7 @@
       
       if (recentLogs.length > 0) {
         let pathD = '';
+        let prevLog = null;
         recentLogs.forEach((log, index) => {
           const xPct = getLogXPct(log.timestamp);
           const yPct = log.currentPct;
@@ -1416,6 +1448,14 @@
             const pointLabel = isCredits ? `${symbol}${((yPct / 100) * maxQuota).toFixed(2)}` : `${yPct.toFixed(2)}%`;
             pointsHTML += `<circle cx="${x}" cy="${y}" r="4" fill="var(--theme-primary)" stroke="#ffffff" stroke-width="2" filter="url(#glow-${trackerId})" />`;
             pointsHTML += `<text x="${x}" y="${y - 6}" fill="var(--text-secondary)" font-size="8" text-anchor="middle" font-family="Share Tech Mono">${pointLabel}</text>`;
+            if (prevLog && prevLog.id) {
+              const deltaLabel = formatDeltaText(
+                log.currentPct - prevLog.currentPct,
+                isCredits, symbol, maxQuota
+              );
+              pointsHTML += `<text x="${x}" y="${y - 14}" fill="var(--text-muted)" font-size="6.5" text-anchor="middle" font-family="Share Tech Mono">${deltaLabel}</text>`;
+            }
+            prevLog = log;
           }
         });
         
